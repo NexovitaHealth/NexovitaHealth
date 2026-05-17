@@ -1,0 +1,875 @@
+// NEXOVITA HEALTH — PRISMA SCHEMA
+// Multi-tenant health SaaS. All clinical data is agency-scoped.
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+
+enum UserRole {
+  superadmin
+  agency_admin
+  supervisor
+  physician
+  physician_independent
+  aide
+  billing_manager
+  patient
+  family_caregiver
+  school_nurse
+}
+
+enum OrgRole {
+  owner
+  admin
+  member
+  guest
+}
+
+enum PatientStatus {
+  active
+  discharged
+  deceased
+  on_hold
+  intake
+}
+
+enum VisitStatus {
+  scheduled
+  in_progress
+  completed
+  missed
+  cancelled
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+  critical
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum AuditAction {
+  created
+  updated
+  deleted
+  viewed
+  exported
+  invited
+  removed
+  status_changed
+  file_uploaded
+  file_deleted
+  login
+  logout
+  password_changed
+}
+
+enum InvitationStatus {
+  pending
+  accepted
+  expired
+  cancelled
+}
+
+enum AlertSeverity {
+  info
+  warning
+  critical
+}
+
+// CORE: USERS
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  fullName          String    @map("full_name")
+  phone             String?
+  role              UserRole  @default(patient)
+  avatarUrl         String?   @map("avatar_url")
+  
+  // Professional credentials
+  licenseNumber     String?   @map("license_number")
+  licenseType       String?   @map("license_type")
+  licenseExpiry     DateTime? @map("license_expiry")
+  licenseVerified   Boolean   @default(false) @map("license_verified")
+  npiNumber         String?   @map("npi_number")
+  specializations   String?
+  yearsExperience   Int?      @map("years_experience")
+  
+  // Preferences
+  preferredLanguage String    @default("en") @map("preferred_language")
+  country           String    @default("us")
+  whatsappNumber    String?   @map("whatsapp_number")
+  
+  // Auth
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  resetToken        String?   @map("reset_token")
+  resetTokenExpiry  DateTime? @map("reset_token_expiry")
+  lastLoginAt       DateTime? @map("last_login_at")
+  isActive          Boolean   @default(true) @map("is_active")
+  deletedAt         DateTime? @map("deleted_at")
+  
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  orgMemberships    OrgMembership[]
+  sessions          Session[]
+  auditLogs         AuditLog[]      @relation("AuditActor")
+  notifications     Notification[]
+  taskAssignments   TaskAssignee[]
+  tasksCreated      Task[]          @relation("TaskCreatedBy")
+  fileUploads       FileAttachment[]
+  invitationsSent   Invitation[]    @relation("InvitedBy")
+  sentMessages      Message[]       @relation("MessageSender")
+  vitalReadings     PatientVital[]  @relation("VitalRecordedBy")
+  visitLogsRecorded VisitLog[]      @relation("VisitLoggedBy")
+  patientsAssigned  PatientCareTeam[]
+
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
+}
+
+// MULTI-TENANCY: ORGANIZATIONS (Agencies)
+
+model Organization {
+  id                    String   @id @default(uuid())
+  name                  String
+  slug                  String   @unique
+  registrationNumber    String?  @map("registration_number")
+  address               String?
+  city                  String?
+  region                String?
+  country               String   @default("us")
+  phone                 String?
+  email                 String?
+  website               String?
+  logoUrl               String?  @map("logo_url")
+  
+  // Care settings (stored as array via JSON)
+  careSettings          Json     @default("[]") @map("care_settings")
+  
+  // US-specific
+  medicareProviderNumber String? @map("medicare_provider_number")
+  npiNumber             String?  @map("npi_number")
+  
+  // Ghana-specific
+  ghanaFacilityCode     String?  @map("ghana_facility_code")
+  nhiaProviderNumber    String?  @map("nhia_provider_number")
+  
+  // Subscription
+  subscriptionTier      String   @default("agency") @map("subscription_tier")
+  subscriptionCurrency  String   @default("USD") @map("subscription_currency")
+  
+  // Comms
+  twilioWhatsappNumber  String?  @map("twilio_whatsapp_number")
+  supervisorWhatsapp    String?  @map("supervisor_whatsapp")
+  
+  isActive              Boolean  @default(true) @map("is_active")
+  deletedAt             DateTime? @map("deleted_at")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  members               OrgMembership[]
+  invitations           Invitation[]
+  patients              Patient[]
+  projects              Project[]
+  tasks                 Task[]
+  auditLogs             AuditLog[]
+  announcements         Announcement[]
+  branches              OrgBranch[]
+  settings              OrgSettings?
+  messages              Message[]
+  fileAttachments       FileAttachment[]
+
+  @@index([slug])
+  @@index([deletedAt])
+  @@map("organizations")
+}
+
+model OrgMembership {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  orgId          String   @map("org_id")
+  role           OrgRole  @default(member)
+  isPrimary      Boolean  @default(false) @map("is_primary")
+  joinedAt       DateTime @default(now()) @map("joined_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([orgId])
+  @@index([userId])
+  @@map("org_memberships")
+}
+
+model Invitation {
+  id         String           @id @default(uuid())
+  orgId      String           @map("org_id")
+  invitedBy  String           @map("invited_by")
+  email      String
+  role       OrgRole          @default(member)
+  token      String           @unique @default(uuid())
+  status     InvitationStatus @default(pending)
+  expiresAt  DateTime         @map("expires_at")
+  acceptedAt DateTime?        @map("accepted_at")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  org        Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  inviter    User         @relation("InvitedBy", fields: [invitedBy], references: [id])
+
+  @@index([token])
+  @@index([email])
+  @@index([orgId])
+  @@map("invitations")
+}
+
+model OrgBranch {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  name      String
+  address   String?
+  city      String?
+  region    String?
+  phone     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  patients Patient[]    @relation("PatientBranch")
+
+  @@index([orgId])
+  @@map("org_branches")
+}
+
+model OrgSettings {
+  id                    String  @id @default(uuid())
+  orgId                 String  @unique @map("org_id")
+  checkinTime           String  @default("07:30") @map("checkin_time")
+  summaryTime           String  @default("20:00") @map("summary_time")
+  nationalHealthSystem  String? @map("national_health_system")
+  primaryCareSetting    String? @map("primary_care_setting")
+  supervisingNurse      String? @map("supervising_nurse")
+  onboardingCompleted   Boolean @default(false) @map("onboarding_completed")
+  features              Json    @default("{}") // enabled feature flags
+
+  org Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("org_settings")
+}
+
+// PATIENTS
+
+model Patient {
+  id                String        @id @default(uuid())
+  orgId             String        @map("org_id")
+  branchId          String?       @map("branch_id")
+  
+  // Identity
+  fullName          String        @map("full_name")
+  dateOfBirth       DateTime?     @map("date_of_birth")
+  gender            String?
+  photo             String?
+  
+  // Contact
+  phone             String?
+  email             String?
+  address           String?
+  city              String?
+  region            String?
+  country           String?
+  emergencyContact  String?       @map("emergency_contact")
+  emergencyPhone    String?       @map("emergency_phone")
+  
+  // Clinical
+  primaryDiagnosis  String?       @map("primary_diagnosis")
+  secondaryDiagnoses Json         @default("[]") @map("secondary_diagnoses")
+  allergies         Json          @default("[]")
+  bloodType         String?       @map("blood_type")
+  insuranceProvider String?       @map("insurance_provider")
+  insuranceNumber   String?       @map("insurance_number")
+  
+  // Status
+  status            PatientStatus @default(intake)
+  riskLevel         RiskLevel     @default(low) @map("risk_level")
+  admissionDate     DateTime?     @map("admission_date")
+  dischargeDate     DateTime?     @map("discharge_date")
+  
+  // Care type flags
+  isHomeCare        Boolean       @default(false) @map("is_home_care")
+  isHospice         Boolean       @default(false) @map("is_hospice")
+  isPalliative      Boolean       @default(false) @map("is_palliative")
+  
+  // WhatsApp enrollment
+  whatsappEnrolled  Boolean       @default(false) @map("whatsapp_enrolled")
+  whatsappNumber    String?       @map("whatsapp_number")
+  
+  isDraft           Boolean       @default(false) @map("is_draft")
+  deletedAt         DateTime?     @map("deleted_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  org               Organization    @relation(fields: [orgId], references: [id])
+  branch            OrgBranch?      @relation("PatientBranch", fields: [branchId], references: [id])
+  vitals            PatientVital[]
+  visitLogs         VisitLog[]
+  careTeam          PatientCareTeam[]
+  tasks             Task[]
+  documents         PatientDocument[]
+  labOrders         LabOrder[]
+  medications       PatientMedication[]
+  auditLogs         AuditLog[]
+  alerts            ClinicalAlert[]
+  carePlans         CarePlan[]
+  fileAttachments   FileAttachment[]
+
+  @@index([orgId])
+  @@index([status])
+  @@index([riskLevel])
+  @@index([deletedAt])
+  @@map("patients")
+}
+
+model PatientCareTeam {
+  id         String   @id @default(uuid())
+  patientId  String   @map("patient_id")
+  userId     String   @map("user_id")
+  role       String   // "primary_nurse", "physician", "aide", etc.
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  isActive   Boolean  @default(true) @map("is_active")
+
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([patientId, userId])
+  @@index([patientId])
+  @@index([userId])
+  @@map("patient_care_teams")
+}
+
+// VITALS
+
+model PatientVital {
+  id               String    @id @default(uuid())
+  patientId        String    @map("patient_id")
+  recordedById     String    @map("recorded_by_id")
+  
+  // Core vitals
+  systolicBp       Int?      @map("systolic_bp")
+  diastolicBp      Int?      @map("diastolic_bp")
+  heartRate        Int?      @map("heart_rate")
+  respiratoryRate  Int?      @map("respiratory_rate")
+  temperature      Float?
+  oxygenSaturation Int?      @map("oxygen_saturation")
+  weight           Float?
+  height           Float?
+  bloodGlucose     Float?    @map("blood_glucose")
+  painScore        Int?      @map("pain_score")
+  
+  notes            String?
+  recordedAt       DateTime  @default(now()) @map("recorded_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  patient          Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  recordedBy       User      @relation("VitalRecordedBy", fields: [recordedById], references: [id])
+  alerts           ClinicalAlert[]
+
+  @@index([patientId])
+  @@index([recordedAt])
+  @@map("patient_vitals")
+}
+
+// VISIT LOGS
+
+model VisitLog {
+  id              String      @id @default(uuid())
+  patientId       String      @map("patient_id")
+  loggedById      String      @map("logged_by_id")
+  
+  visitType       String      @map("visit_type")
+  status          VisitStatus @default(scheduled)
+  scheduledAt     DateTime    @map("scheduled_at")
+  checkinAt       DateTime?   @map("checkin_at")
+  checkoutAt      DateTime?   @map("checkout_at")
+  durationMinutes Int?        @map("duration_minutes")
+  
+  // ADL tracking
+  adlBathing      Boolean?    @map("adl_bathing")
+  adlGrooming     Boolean?    @map("adl_grooming")
+  adlDressing     Boolean?    @map("adl_dressing")
+  adlMobility     Boolean?    @map("adl_mobility")
+  adlFeeding      Boolean?    @map("adl_feeding")
+  
+  mood            String?
+  overallStatus   String?     @map("overall_status")
+  notes           String?
+  signatureUrl    String?     @map("signature_url")
+  isOpenShift     Boolean     @default(false) @map("is_open_shift")
+  
+  deletedAt       DateTime?   @map("deleted_at")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  patient         Patient     @relation(fields: [patientId], references: [id])
+  loggedBy        User        @relation("VisitLoggedBy", fields: [loggedById], references: [id])
+
+  @@index([patientId])
+  @@index([loggedById])
+  @@index([scheduledAt])
+  @@map("visit_logs")
+}
+
+// PROJECTS & TASKS (Kanban / Project Management)
+
+model Project {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  name        String
+  description String?
+  status      String   @default("active") // active | archived | completed
+  color       String   @default("#028090")
+  createdById String   @map("created_by_id")
+  
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  org         Organization @relation(fields: [orgId], references: [id])
+  tasks       Task[]
+  columns     TaskColumn[]
+
+  @@index([orgId])
+  @@index([deletedAt])
+  @@map("projects")
+}
+
+model TaskColumn {
+  id        String  @id @default(uuid())
+  projectId String  @map("project_id")
+  name      String
+  position  Int
+  color     String  @default("#94a3b8")
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@index([projectId])
+  @@map("task_columns")
+}
+
+model Task {
+  id           String       @id @default(uuid())
+  orgId        String       @map("org_id")
+  projectId    String?      @map("project_id")
+  columnId     String?      @map("column_id")
+  patientId    String?      @map("patient_id")  // optional: link task to patient
+  createdById  String       @map("created_by_id")
+  
+  title        String
+  description  String?
+  status       TaskStatus   @default(pending)
+  priority     TaskPriority @default(medium)
+  position     Int          @default(0)  // for kanban ordering
+  
+  dueDate      DateTime?    @map("due_date")
+  completedAt  DateTime?    @map("completed_at")
+  
+  labels       Json         @default("[]")  // string array
+  
+  deletedAt    DateTime?    @map("deleted_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  org          Organization @relation(fields: [orgId], references: [id])
+  project      Project?     @relation(fields: [projectId], references: [id])
+  column       TaskColumn?  @relation(fields: [columnId], references: [id])
+  patient      Patient?     @relation(fields: [patientId], references: [id])
+  createdBy    User         @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  assignees    TaskAssignee[]
+  comments     TaskComment[]
+  attachments  FileAttachment[]
+  auditLogs    AuditLog[]
+
+  @@index([orgId])
+  @@index([projectId])
+  @@index([status])
+  @@index([priority])
+  @@index([deletedAt])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id         String   @id @default(uuid())
+  taskId     String   @map("task_id")
+  userId     String   @map("user_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  authorId  String   @map("author_id")
+  content   String
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+// CLINICAL: CARE PLANS, LABS, MEDICATIONS
+
+model CarePlan {
+  id          String   @id @default(uuid())
+  patientId   String   @map("patient_id")
+  authorId    String   @map("author_id")
+  
+  title       String
+  goals       Json     @default("[]")
+  interventions Json   @default("[]")
+  status      String   @default("active")
+  reviewDate  DateTime? @map("review_date")
+  approvedAt  DateTime? @map("approved_at")
+  approvedBy  String?  @map("approved_by")
+  
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  patient     Patient  @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@map("care_plans")
+}
+
+model PatientMedication {
+  id              String    @id @default(uuid())
+  patientId       String    @map("patient_id")
+  prescribedById  String?   @map("prescribed_by_id")
+  
+  name            String
+  genericName     String?   @map("generic_name")
+  dosage          String?
+  frequency       String?
+  route           String?
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+  instructions    String?
+  isActive        Boolean   @default(true) @map("is_active")
+  
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  patient         Patient   @relation(fields: [patientId], references: [id])
+  doseLogs        DoseLog[]
+
+  @@index([patientId])
+  @@map("patient_medications")
+}
+
+model DoseLog {
+  id             String   @id @default(uuid())
+  medicationId   String   @map("medication_id")
+  administeredBy String?  @map("administered_by")
+  
+  scheduledTime  String?  @map("scheduled_time")
+  administeredAt DateTime? @map("administered_at")
+  status         String   @default("scheduled") // scheduled | given | missed | refused
+  notes          String?
+  date           String   // "YYYY-MM-DD"
+  
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  medication     PatientMedication @relation(fields: [medicationId], references: [id])
+
+  @@index([medicationId])
+  @@index([date])
+  @@map("dose_logs")
+}
+
+model LabOrder {
+  id           String   @id @default(uuid())
+  patientId    String   @map("patient_id")
+  orderedById  String   @map("ordered_by_id")
+  
+  panelName    String   @map("panel_name")
+  status       String   @default("ordered") // ordered | collected | resulted | cancelled
+  priority     String   @default("routine") // routine | urgent | stat
+  notes        String?
+  resultUrl    String?  @map("result_url")
+  resultedAt   DateTime? @map("resulted_at")
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  results      LabResult[]
+
+  @@index([patientId])
+  @@map("lab_orders")
+}
+
+model LabResult {
+  id           String  @id @default(uuid())
+  labOrderId   String  @map("lab_order_id")
+  componentName String @map("component_name")
+  value        String
+  unit         String?
+  referenceMin String? @map("reference_min")
+  referenceMax String? @map("reference_max")
+  isAbnormal   Boolean @default(false) @map("is_abnormal")
+  isCritical   Boolean @default(false) @map("is_critical")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  labOrder     LabOrder @relation(fields: [labOrderId], references: [id])
+
+  @@index([labOrderId])
+  @@map("lab_results")
+}
+
+// DOCUMENTS & FILE ATTACHMENTS
+
+model FileAttachment {
+  id           String  @id @default(uuid())
+  orgId        String  @map("org_id")
+  uploadedById String  @map("uploaded_by_id")
+  
+  // Polymorphic: attach to patient, task, or org
+  patientId    String? @map("patient_id")
+  taskId       String? @map("task_id")
+  
+  filename     String
+  originalName String  @map("original_name")
+  mimeType     String  @map("mime_type")
+  sizeBytes    Int     @map("size_bytes")
+  storageKey   String  @map("storage_key") // path in local/S3
+  url          String? // presigned or served URL
+  
+  documentType String? @map("document_type") // "clinical_note", "lab_result", etc.
+  description  String?
+  
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  org          Organization @relation(fields: [orgId], references: [id])
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id])
+  patient      Patient?     @relation(fields: [patientId], references: [id])
+  task         Task?        @relation(fields: [taskId], references: [id])
+
+  @@index([orgId])
+  @@index([patientId])
+  @@index([taskId])
+  @@map("file_attachments")
+}
+
+model PatientDocument {
+  id           String   @id @default(uuid())
+  patientId    String   @map("patient_id")
+  uploadedById String   @map("uploaded_by_id")
+  title        String
+  documentType String   @map("document_type")
+  fileUrl      String   @map("file_url")
+  fileKey      String   @map("file_key")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  isVerified   Boolean  @default(false) @map("is_verified")
+  verifiedBy   String?  @map("verified_by")
+  verifiedAt   DateTime? @map("verified_at")
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  patient      Patient  @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@map("patient_documents")
+}
+
+// AUDIT TRAIL
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  orgId        String?     @map("org_id")
+  actorId      String      @map("actor_id")
+  action       AuditAction
+  resourceType String      @map("resource_type")
+  resourceId   String?     @map("resource_id")
+  patientId    String?     @map("patient_id")
+  taskId       String?     @map("task_id")
+  metadata     Json        @default("{}")
+  ipAddress    String?     @map("ip_address")
+  userAgent    String?     @map("user_agent")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  org          Organization? @relation(fields: [orgId], references: [id])
+  actor        User          @relation("AuditActor", fields: [actorId], references: [id])
+  patient      Patient?      @relation(fields: [patientId], references: [id])
+  task         Task?         @relation(fields: [taskId], references: [id])
+
+  @@index([orgId])
+  @@index([actorId])
+  @@index([resourceType, resourceId])
+  @@index([patientId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// MESSAGING & NOTIFICATIONS
+
+model Message {
+  id         String   @id @default(uuid())
+  orgId      String   @map("org_id")
+  senderId   String   @map("sender_id")
+  channel    String   @default("internal") // internal | whatsapp | sms
+  subject    String?
+  body       String
+  recipients Json     @default("[]") // array of user IDs
+  isRead     Boolean  @default(false) @map("is_read")
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  org        Organization @relation(fields: [orgId], references: [id])
+  sender     User         @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@index([orgId])
+  @@index([senderId])
+  @@map("messages")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  type       String   // "alert", "task_assigned", "invite", etc.
+  title      String
+  body       String
+  actionUrl  String?  @map("action_url")
+  isRead     Boolean  @default(false) @map("is_read")
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  authorId  String   @map("author_id")
+  title     String
+  body      String
+  priority  String   @default("normal") // normal | urgent
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  org       Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@map("announcements")
+}
+
+// CLINICAL ALERTS
+
+model ClinicalAlert {
+  id           String        @id @default(uuid())
+  patientId    String        @map("patient_id")
+  vitalId      String?       @map("vital_id")
+  alertType    String        @map("alert_type") // "vital_threshold", "medication_due", etc.
+  severity     AlertSeverity @default(warning)
+  title        String
+  body         String
+  isResolved   Boolean       @default(false) @map("is_resolved")
+  resolvedBy   String?       @map("resolved_by")
+  resolvedAt   DateTime?     @map("resolved_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  patient      Patient       @relation(fields: [patientId], references: [id])
+  vital        PatientVital? @relation(fields: [vitalId], references: [id])
+
+  @@index([patientId, isResolved])
+  @@map("clinical_alerts")
+}
+
+// SCHEDULING
+
+model Schedule {
+  id          String   @id @default(uuid())
+  orgId       String   @map("org_id")
+  staffId     String   @map("staff_id")
+  patientId   String?  @map("patient_id")
+  
+  title       String
+  startTime   DateTime @map("start_time")
+  endTime     DateTime @map("end_time")
+  visitType   String?  @map("visit_type")
+  status      String   @default("scheduled")
+  notes       String?
+  isRecurring Boolean  @default(false) @map("is_recurring")
+  recurRule   String?  @map("recur_rule")
+  
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId])
+  @@index([staffId])
+  @@index([startTime])
+  @@map("schedules")
+}
