@@ -15,41 +15,27 @@ export const GET = withOrgAccess(async (_req, _ctx, auth) => {
             id: true,
             email: true,
             fullName: true,
-            role: true,
+            role: true, // UserRole
             avatarUrl: true,
             phone: true,
             isActive: true,
             lastLoginAt: true,
-            licenseNumber: true,
-            licenseType: true,
-            specializations: true,
           },
         },
       },
       orderBy: { joinedAt: "asc" },
     });
 
+    // Explicitly expose orgRole (the OrgMembership.role) alongside the user's UserRole
     return success(
-      members.map(
-        (m: {
-          userId: string;
-          role: string;
-          isPrimary: boolean;
-          joinedAt: Date;
-          user: {
-            id: string;
-            fullName: string;
-            email: string;
-            avatarUrl: string | null;
-          };
-        }) => ({
-          userId: m.userId,
-          orgRole: m.role,
-          isPrimary: m.isPrimary,
-          joinedAt: m.joinedAt,
-          ...m.user,
-        }),
-      ),
+      members.map((m) => ({
+        userId: m.userId,
+        orgRole: m.role, // OrgRole: owner|admin|member|guest
+        isPrimary: m.isPrimary,
+        joinedAt: m.joinedAt,
+        // Spread user fields (includes user.role = UserRole)
+        ...m.user,
+      })),
     );
   } catch (err) {
     return serverError(err);
@@ -58,19 +44,21 @@ export const GET = withOrgAccess(async (_req, _ctx, auth) => {
 
 export const DELETE = withOrgAccess(async (req, _ctx, auth) => {
   try {
-    // Only owners and admins can remove members
     if (!["owner", "admin"].includes(auth.orgRole || "")) {
       return forbidden();
     }
 
+    // Fix: read userId from JSON body (not query param)
     const { userId } = await req.json();
+    if (!userId) return forbidden("userId is required");
     if (userId === auth.userId) return forbidden("Cannot remove yourself");
 
-    // Owners can only be removed by other owners
     const targetMembership = await prisma.orgMembership.findFirst({
       where: { orgId: auth.orgId!, userId },
     });
     if (!targetMembership) return success({ removed: false });
+
+    // Only owners can remove other owners
     if (targetMembership.role === "owner" && auth.orgRole !== "owner") {
       return forbidden("Only owners can remove other owners");
     }
