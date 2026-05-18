@@ -71,6 +71,7 @@ export default function VitalsMonitorPage() {
     id: string;
     firstName: string;
     lastName: string;
+    fullName: string;
     riskLevel: string;
     primaryDiagnosis?: string;
     latestVital?: {
@@ -153,6 +154,7 @@ export default function VitalsMonitorPage() {
               id: string;
               firstName: string;
               lastName: string;
+              fullName: string;
               riskLevel: string;
               primaryDiagnosis?: string;
               latestVital?: {
@@ -193,7 +195,7 @@ export default function VitalsMonitorPage() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <p className="font-semibold text-slate-900">
-                        {patient.firstName} {patient.lastName}
+                        {patient.fullName}
                       </p>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {patient.primaryDiagnosis || "No diagnosis"}
