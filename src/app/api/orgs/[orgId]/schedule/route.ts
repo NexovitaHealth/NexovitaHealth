@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withAuth } from "@/lib/middleware";
+import { withOrgAccess } from "@/lib/middleware";
 import { prisma } from "@/lib/prisma";
 import { success, serverError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withAuth(async (req: NextRequest, ctx, auth) => {
+export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
     const { orgId } = auth;
     if (!orgId) return NextResponse.json({ error: "No org" }, { status: 400 });
@@ -14,19 +14,13 @@ export const GET = withAuth(async (req: NextRequest, ctx, auth) => {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    const orgPatients = await prisma.patient.findMany({
-      where: { orgId, status: "active", deletedAt: null },
-      select: { id: true },
-    });
-    const patientIds = orgPatients.map((p: { id: string }) => p.id);
-
     const scheduledAtFilter: Record<string, Date> = {};
     if (startDate) scheduledAtFilter.gte = new Date(startDate);
     if (endDate) scheduledAtFilter.lte = new Date(endDate + "T23:59:59Z");
 
     const visits = await prisma.visitLog.findMany({
       where: {
-        patientId: { in: patientIds },
+        orgId,
         deletedAt: null,
         ...(Object.keys(scheduledAtFilter).length
           ? { scheduledAt: scheduledAtFilter }
@@ -46,6 +40,10 @@ export const GET = withAuth(async (req: NextRequest, ctx, auth) => {
       visitType: v.visitType,
       status: v.status,
       notes: v.notes,
+      checkinAt: v.checkinAt,
+      checkoutAt: v.checkoutAt,
+      evvVerified: v.evvVerified,
+      lockedAt: v.lockedAt,
       patient: v.patient,
       caregiver: v.loggedBy,
     }));

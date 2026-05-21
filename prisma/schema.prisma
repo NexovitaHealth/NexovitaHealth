@@ -117,6 +117,7 @@ enum PhysicianOrderStatus {
 
 enum VisitTaskStatus {
   pending
+  in_progress
   completed
   skipped
   refused
@@ -270,6 +271,7 @@ model Organization {
   members               OrgMembership[]
   invitations           Invitation[]
   patients              Patient[]
+  visitLogs             VisitLog[]
   projects              Project[]
   tasks                 Task[]
   auditLogs             AuditLog[]
@@ -387,6 +389,8 @@ model Patient {
   country           String?
   emergencyContact  String?       @map("emergency_contact")
   emergencyPhone    String?       @map("emergency_phone")
+  latitude          Float?
+  longitude         Float?
   
   // Clinical
   primaryDiagnosis  String?       @map("primary_diagnosis")
@@ -499,6 +503,7 @@ model PatientVital {
 
 model VisitLog {
   id              String      @id @default(uuid())
+  orgId           String      @map("org_id")
   patientId       String      @map("patient_id")
   loggedById      String      @map("logged_by_id")
   
@@ -508,6 +513,19 @@ model VisitLog {
   checkinAt       DateTime?   @map("checkin_at")
   checkoutAt      DateTime?   @map("checkout_at")
   durationMinutes Int?        @map("duration_minutes")
+  serviceAddress  String?     @map("service_address")
+  serviceLatitude Float?      @map("service_latitude")
+  serviceLongitude Float?     @map("service_longitude")
+  checkinLatitude Float?      @map("checkin_latitude")
+  checkinLongitude Float?     @map("checkin_longitude")
+  checkoutLatitude Float?     @map("checkout_latitude")
+  checkoutLongitude Float?    @map("checkout_longitude")
+  checkinDistanceMeters Float? @map("checkin_distance_meters")
+  checkoutDistanceMeters Float? @map("checkout_distance_meters")
+  evvVerified     Boolean     @default(false) @map("evv_verified")
+  evvFlagReason   String?     @map("evv_flag_reason")
+  submittedAt     DateTime?   @map("submitted_at")
+  lockedAt        DateTime?   @map("locked_at")
   
   // ADL tracking
   adlBathing      Boolean?    @map("adl_bathing")
@@ -526,14 +544,17 @@ model VisitLog {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt @map("updated_at")
 
+  org             Organization @relation(fields: [orgId], references: [id])
   patient         Patient     @relation(fields: [patientId], references: [id])
   loggedBy        User        @relation("VisitLoggedBy", fields: [loggedById], references: [id])
   visitTasks      VisitTask[]
   incidents       Incident[]
   escalations     Escalation[]
 
+  @@index([orgId])
   @@index([patientId])
   @@index([loggedById])
+  @@index([status])
   @@index([scheduledAt])
   @@map("visit_logs")
 }

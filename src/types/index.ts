@@ -95,6 +95,7 @@ export type PhysicianOrderStatus =
 
 export type VisitTaskStatus =
   | 'pending'
+  | 'in_progress'
   | 'completed'
   | 'skipped'
   | 'refused'

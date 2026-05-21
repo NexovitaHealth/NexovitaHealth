@@ -189,6 +189,50 @@ export function orgApi(orgId: string) {
       list: (params?: { startDate?: string; endDate?: string }) =>
         get<any[]>(`${orgBase}/schedule${query(params)}`),
     },
+    visits: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        status?: string;
+        staffId?: string;
+        patientId?: string;
+        startDate?: string;
+        endDate?: string;
+      }) => get<any[]>(`${orgBase}/visits${query(params)}`),
+      get: (visitId: string) => get<any>(`${orgBase}/visits/${visitId}`),
+      create: (data: unknown) => post<any>(`${orgBase}/visits`, data),
+      update: (visitId: string, data: unknown) =>
+        patch<any>(`${orgBase}/visits/${visitId}`, data),
+      checkIn: (
+        visitId: string,
+        data: {
+          latitude: number;
+          longitude: number;
+          checkedInAt?: string;
+          radiusMeters?: number;
+        },
+      ) => post<any>(`${orgBase}/visits/${visitId}/check-in`, data),
+      checkOut: (
+        visitId: string,
+        data: {
+          latitude: number;
+          longitude: number;
+          checkedOutAt?: string;
+          notes?: string;
+          radiusMeters?: number;
+        },
+      ) => post<any>(`${orgBase}/visits/${visitId}/check-out`, data),
+      submit: (visitId: string) =>
+        post<any>(`${orgBase}/visits/${visitId}/submit`),
+      updateTask: (
+        visitId: string,
+        taskId: string,
+        data: {
+          status: "pending" | "in_progress" | "completed" | "skipped" | "refused";
+          notes?: string;
+        },
+      ) => patch<any>(`${orgBase}/visits/${visitId}/tasks/${taskId}`, data),
+    },
     messages: {
       threads: () => get<any[]>(`${orgBase}/messages/threads`),
       thread: (threadId: string) =>
@@ -244,6 +288,10 @@ export const schedule = {
   forOrg: (orgId: string) => orgApi(orgId).schedule,
 };
 
+export const visits = {
+  forOrg: (orgId: string) => orgApi(orgId).visits,
+};
+
 export const members = {
   forOrg: (orgId: string) => orgApi(orgId).members,
 };
@@ -264,6 +312,7 @@ export default {
   reports,
   labs,
   schedule,
+  visits,
   members,
   invitations,
 };
