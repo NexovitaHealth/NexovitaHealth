@@ -41,7 +41,7 @@ export function parseReportType(type: string): ReportType | null {
   return null;
 }
 
-export function getReportExportColumns(reportType: Exclude<ReportType, "billing">) {
+export function getReportExportColumns(reportType: ReportType) {
   const columns = {
     census: [
       "patientId",
@@ -88,7 +88,21 @@ export function getReportExportColumns(reportType: Exclude<ReportType, "billing"
       "admissionDate",
       "dischargeDate",
     ],
-  } satisfies Record<Exclude<ReportType, "billing">, string[]>;
+    billing: [
+      "claimId",
+      "claimNumber",
+      "patientId",
+      "patientName",
+      "visitId",
+      "status",
+      "payerName",
+      "serviceCode",
+      "serviceDate",
+      "units",
+      "totalAmount",
+      "authorisationNumber",
+    ],
+  } satisfies Record<ReportType, string[]>;
   return columns[reportType];
 }
 
@@ -295,6 +309,61 @@ export async function getOrgReport(
         riskLevel: patient.riskLevel,
         admissionDate: patient.admissionDate?.toISOString() ?? null,
         dischargeDate: patient.dischargeDate?.toISOString() ?? null,
+      })),
+    };
+  }
+
+  if (reportType === "billing") {
+    const claims = await prisma.claim.findMany({
+      where: {
+        orgId,
+        deletedAt: null,
+        serviceDate: { gte: start, lte: end },
+      },
+      include: {
+        patient: { select: { id: true, fullName: true } },
+        authorisation: {
+          select: { id: true, authorisationNumber: true },
+        },
+      },
+      orderBy: { serviceDate: "desc" },
+    });
+
+    const statusCounts = new Map<string, number>();
+    claims.forEach((claim) => {
+      statusCounts.set(claim.status, (statusCounts.get(claim.status) || 0) + 1);
+    });
+
+    return {
+      summary: {
+        totalClaims: claims.length,
+        queued: claims.filter((claim) => claim.status === "queued").length,
+        submitted: claims.filter((claim) => claim.status === "submitted").length,
+        paid: claims.filter((claim) => claim.status === "paid").length,
+        denied: claims.filter((claim) => claim.status === "denied").length,
+        totalBilled: claims.reduce(
+          (sum, claim) => sum + Number(claim.totalAmount),
+          0,
+        ),
+      },
+      chartData: Array.from(statusCounts.entries()).map(([label, value]) => ({
+        label,
+        value,
+      })),
+      exportRows: claims.map((claim) => ({
+        claimId: claim.id,
+        claimNumber: claim.claimNumber,
+        patientId: claim.patientId,
+        patientName: claim.patient.fullName,
+        visitId: claim.visitLogId,
+        status: claim.status,
+        payerName: claim.payerName,
+        serviceCode: claim.serviceCode,
+        serviceDate: claim.serviceDate.toISOString(),
+        units: claim.units,
+        totalAmount: Number(claim.totalAmount),
+        authorisationNumber:
+          claim.authorisation?.authorisationNumber ?? null,
       })),
     };
   }

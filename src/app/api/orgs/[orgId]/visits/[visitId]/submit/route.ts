@@ -9,6 +9,7 @@ import {
   getOrgVisitOrThrow,
   getVisitSubmissionBlockers,
 } from "@/lib/visits";
+import { ensurePendingReviewForVisit } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -40,14 +41,19 @@ export const POST = withOrgAccess(async (req: NextRequest, ctx, auth) => {
     }
 
     const now = new Date();
-    const updated = await prisma.visitLog.update({
-      where: { id: visit.id },
-      data: { submittedAt: now, lockedAt: now },
-      include: {
-        patient: { select: { id: true, fullName: true } },
-        loggedBy: { select: { id: true, fullName: true } },
-        visitTasks: { orderBy: { position: "asc" } },
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const submittedVisit = await tx.visitLog.update({
+        where: { id: visit.id },
+        data: { submittedAt: now, lockedAt: now },
+        include: {
+          patient: { select: { id: true, fullName: true } },
+          loggedBy: { select: { id: true, fullName: true } },
+          visitTasks: { orderBy: { position: "asc" } },
+          visitReview: true,
+        },
+      });
+      await ensurePendingReviewForVisit(auth.orgId!, visit.id, tx);
+      return submittedVisit;
     });
 
     await createAuditLog({

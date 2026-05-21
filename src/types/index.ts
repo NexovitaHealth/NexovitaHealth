@@ -100,6 +100,20 @@ export type VisitTaskStatus =
   | 'skipped'
   | 'refused'
 
+export type VisitReviewStatus =
+  | 'pending'
+  | 'approved'
+  | 'needs_correction'
+  | 'rejected'
+
+export type ClaimStatus =
+  | 'draft'
+  | 'queued'
+  | 'submitted'
+  | 'paid'
+  | 'denied'
+  | 'voided'
+
 export type IncidentStatus =
   | 'reported'
   | 'triaged'

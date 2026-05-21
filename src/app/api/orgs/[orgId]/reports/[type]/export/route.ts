@@ -15,9 +15,6 @@ export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
     const reportType = parseReportType(ctx.params.type);
     if (!reportType) return error("Unsupported report type", 400);
-    if (reportType === "billing") {
-      return error("Billing export requires the billing domain to be implemented", 501);
-    }
 
     const range = req.nextUrl.searchParams.get("range") || "30d";
     const report = await getOrgReport(auth.orgId!, reportType, range);

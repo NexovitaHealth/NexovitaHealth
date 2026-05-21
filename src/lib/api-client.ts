@@ -233,6 +233,54 @@ export function orgApi(orgId: string) {
         },
       ) => patch<any>(`${orgBase}/visits/${visitId}/tasks/${taskId}`, data),
     },
+    review: {
+      visits: (params?: {
+        page?: number;
+        pageSize?: number;
+        status?: "pending" | "approved" | "needs_correction" | "rejected";
+        patientId?: string;
+      }) => get<any[]>(`${orgBase}/review/visits${query(params)}`),
+      decideVisit: (
+        visitId: string,
+        data: {
+          status: "approved" | "needs_correction" | "rejected";
+          clinicalNotes?: string;
+          correctionReason?: string;
+          billingHoldReason?: string;
+        },
+      ) => patch<any>(`${orgBase}/review/visits/${visitId}`, data),
+    },
+    billing: {
+      queue: (params?: { page?: number; pageSize?: number }) =>
+        get<any[]>(`${orgBase}/billing/queue${query(params)}`),
+      claims: {
+        list: (params?: {
+          page?: number;
+          pageSize?: number;
+          status?: string;
+          patientId?: string;
+        }) => get<any[]>(`${orgBase}/billing/claims${query(params)}`),
+        get: (claimId: string) =>
+          get<any>(`${orgBase}/billing/claims/${claimId}`),
+        create: (data: {
+          visitId: string;
+          serviceCode: string;
+          totalAmount?: number;
+          units?: number;
+          diagnosisCodes?: string[];
+          procedureCodes?: string[];
+          authorisationId?: string;
+        }) => post<any>(`${orgBase}/billing/claims`, data),
+        update: (
+          claimId: string,
+          data: {
+            status?: "queued" | "submitted" | "paid" | "denied" | "voided";
+            denialReason?: string;
+            metadata?: Record<string, unknown>;
+          },
+        ) => patch<any>(`${orgBase}/billing/claims/${claimId}`, data),
+      },
+    },
     messages: {
       threads: () => get<any[]>(`${orgBase}/messages/threads`),
       thread: (threadId: string) =>
@@ -292,6 +340,14 @@ export const visits = {
   forOrg: (orgId: string) => orgApi(orgId).visits,
 };
 
+export const review = {
+  forOrg: (orgId: string) => orgApi(orgId).review,
+};
+
+export const billing = {
+  forOrg: (orgId: string) => orgApi(orgId).billing,
+};
+
 export const members = {
   forOrg: (orgId: string) => orgApi(orgId).members,
 };
@@ -313,6 +369,8 @@ export default {
   labs,
   schedule,
   visits,
+  review,
+  billing,
   members,
   invitations,
 };

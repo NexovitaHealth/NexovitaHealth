@@ -123,6 +123,22 @@ enum VisitTaskStatus {
   refused
 }
 
+enum VisitReviewStatus {
+  pending
+  approved
+  needs_correction
+  rejected
+}
+
+enum ClaimStatus {
+  draft
+  queued
+  submitted
+  paid
+  denied
+  voided
+}
+
 enum IncidentStatus {
   reported
   triaged
@@ -200,6 +216,8 @@ model User {
   escalationsAssigned Escalation[]   @relation("EscalationsAssigned")
   visitTasksAssigned VisitTask[]     @relation("VisitTasksAssigned")
   visitTasksCompleted VisitTask[]    @relation("VisitTasksCompleted")
+  visitReviews      VisitReview[]     @relation("VisitReviewsReviewedBy")
+  claimsCreated     Claim[]           @relation("ClaimsCreatedBy")
   incidentsReported Incident[]       @relation("IncidentsReported")
   incidentsAssigned Incident[]       @relation("IncidentsAssigned")
   familyCaregiverAccounts FamilyCaregiverAccount[] @relation("FamilyCaregiverUser")
@@ -284,6 +302,8 @@ model Organization {
   physicianOrders       PhysicianOrder[]
   escalations           Escalation[]
   visitTasks            VisitTask[]
+  visitReviews          VisitReview[]
+  claims                Claim[]
   incidents             Incident[]
   familyCaregiverAccounts FamilyCaregiverAccount[]
   payerAuthorisations   PayerAuthorisation[]
@@ -436,6 +456,8 @@ model Patient {
   physicianOrders   PhysicianOrder[]
   escalations       Escalation[]
   visitTasks        VisitTask[]
+  visitReviews      VisitReview[]
+  claims            Claim[]
   incidents         Incident[]
   familyCaregiverAccounts FamilyCaregiverAccount[]
   payerAuthorisations PayerAuthorisation[]
@@ -548,6 +570,8 @@ model VisitLog {
   patient         Patient     @relation(fields: [patientId], references: [id])
   loggedBy        User        @relation("VisitLoggedBy", fields: [loggedById], references: [id])
   visitTasks      VisitTask[]
+  visitReview     VisitReview?
+  claim           Claim?
   incidents       Incident[]
   escalations     Escalation[]
 
@@ -892,6 +916,34 @@ model VisitTask {
   @@map("visit_tasks")
 }
 
+model VisitReview {
+  id                String            @id @default(uuid())
+  orgId             String            @map("org_id")
+  patientId         String            @map("patient_id")
+  visitLogId        String            @unique @map("visit_log_id")
+  reviewedById      String?           @map("reviewed_by_id")
+
+  status            VisitReviewStatus @default(pending)
+  clinicalNotes     String?           @map("clinical_notes")
+  correctionReason  String?           @map("correction_reason")
+  billingHoldReason String?           @map("billing_hold_reason")
+  reviewedAt        DateTime?         @map("reviewed_at")
+
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  org               Organization      @relation(fields: [orgId], references: [id])
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  visitLog          VisitLog          @relation(fields: [visitLogId], references: [id], onDelete: Cascade)
+  reviewedBy        User?             @relation("VisitReviewsReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([orgId])
+  @@index([patientId])
+  @@index([reviewedById])
+  @@index([status])
+  @@map("visit_reviews")
+}
+
 model Incident {
   id             String         @id @default(uuid())
   orgId          String         @map("org_id")
@@ -987,6 +1039,7 @@ model PayerAuthorisation {
 
   org                 Organization             @relation(fields: [orgId], references: [id])
   patient             Patient                  @relation(fields: [patientId], references: [id])
+  claims              Claim[]
 
   @@unique([orgId, authorisationNumber])
   @@index([orgId])
@@ -995,6 +1048,53 @@ model PayerAuthorisation {
   @@index([endDate])
   @@index([deletedAt])
   @@map("payer_authorisations")
+}
+
+model Claim {
+  id                  String              @id @default(uuid())
+  orgId               String              @map("org_id")
+  patientId           String              @map("patient_id")
+  visitLogId          String              @unique @map("visit_log_id")
+  authorisationId     String?             @map("authorisation_id")
+  createdById         String              @map("created_by_id")
+
+  claimNumber         String?             @map("claim_number")
+  status              ClaimStatus         @default(draft)
+  payerName           String              @map("payer_name")
+  serviceCode         String              @map("service_code")
+  serviceDate         DateTime            @map("service_date")
+  units               Int                 @default(1)
+  unitType            String              @default("visit") @map("unit_type")
+  totalAmount         Decimal             @default(0) @map("total_amount") @db.Decimal(10, 2)
+  diagnosisCodes      Json                @default("[]") @map("diagnosis_codes")
+  procedureCodes      Json                @default("[]") @map("procedure_codes")
+  denialReason        String?             @map("denial_reason")
+  metadata            Json                @default("{}")
+
+  queuedAt            DateTime?           @map("queued_at")
+  submittedAt         DateTime?           @map("submitted_at")
+  paidAt              DateTime?           @map("paid_at")
+  deniedAt            DateTime?           @map("denied_at")
+  voidedAt            DateTime?           @map("voided_at")
+  deletedAt           DateTime?           @map("deleted_at")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  org                 Organization        @relation(fields: [orgId], references: [id])
+  patient             Patient             @relation(fields: [patientId], references: [id])
+  visitLog            VisitLog            @relation(fields: [visitLogId], references: [id])
+  authorisation       PayerAuthorisation? @relation(fields: [authorisationId], references: [id])
+  createdBy           User                @relation("ClaimsCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([orgId, claimNumber])
+  @@index([orgId])
+  @@index([patientId])
+  @@index([authorisationId])
+  @@index([createdById])
+  @@index([status])
+  @@index([serviceDate])
+  @@index([deletedAt])
+  @@map("claims")
 }
 
 // DOCUMENTS & FILE ATTACHMENTS
