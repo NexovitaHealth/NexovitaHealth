@@ -43,10 +43,9 @@ export type RiskLevel =
   | 'critical'
 
 export type TaskStatus =
-  | 'todo'
+  | 'pending'
   | 'in_progress'
-  | 'in_review'
-  | 'done'
+  | 'completed'
   | 'cancelled'
 
 export type TaskPriority =

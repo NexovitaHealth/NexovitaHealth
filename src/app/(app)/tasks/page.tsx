@@ -18,34 +18,30 @@ import {
 } from "lucide-react";
 
 const STATUS_OPTIONS = [
-  "todo",
+  "pending",
   "in_progress",
-  "in_review",
-  "done",
+  "completed",
   "cancelled",
 ];
 const PRIORITY_OPTIONS = ["urgent", "high", "medium", "low"];
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  todo: <Circle className="w-3.5 h-3.5 text-slate-400" />,
+  pending: <Circle className="w-3.5 h-3.5 text-slate-400" />,
   in_progress: <Clock className="w-3.5 h-3.5 text-blue-500" />,
-  in_review: <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />,
-  done: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />,
+  completed: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />,
   cancelled: <X className="w-3.5 h-3.5 text-slate-400" />,
 };
 
 function StatusBadge({ status }: { status: string }) {
   const labels: Record<string, string> = {
-    todo: "To Do",
+    pending: "Pending",
     in_progress: "In Progress",
-    in_review: "In Review",
-    done: "Done",
+    completed: "Completed",
     cancelled: "Cancelled",
   };
   const colors: Record<string, string> = {
-    todo: "bg-slate-100 text-slate-600",
+    pending: "bg-slate-100 text-slate-600",
     in_progress: "bg-blue-50 text-blue-700",
-    in_review: "bg-amber-50 text-amber-700",
-    done: "bg-emerald-50 text-emerald-700",
+    completed: "bg-emerald-50 text-emerald-700",
     cancelled: "bg-slate-50 text-slate-400",
   };
   return (
@@ -142,11 +138,11 @@ export default function TasksPage() {
   }>;
   const counts = {
     all: tasks.length,
-    todo: tasks.filter((t: { status: string }) => t.status === "todo").length,
+    pending: tasks.filter((t: { status: string }) => t.status === "pending").length,
     in_progress: tasks.filter(
       (t: { status: string }) => t.status === "in_progress",
     ).length,
-    done: tasks.filter((t: { status: string }) => t.status === "done").length,
+    completed: tasks.filter((t: { status: string }) => t.status === "completed").length,
   };
 
   return (
@@ -180,8 +176,8 @@ export default function TasksPage() {
             color: "text-slate-600",
           },
           {
-            label: "To Do",
-            value: counts.todo,
+            label: "Pending",
+            value: counts.pending,
             icon: <Circle className="w-4 h-4" />,
             color: "text-slate-500",
           },
@@ -192,8 +188,8 @@ export default function TasksPage() {
             color: "text-blue-500",
           },
           {
-            label: "Done",
-            value: counts.done,
+            label: "Completed",
+            value: counts.completed,
             icon: <CheckCircle2 className="w-4 h-4" />,
             color: "text-emerald-500",
           },
@@ -314,11 +310,11 @@ export default function TasksPage() {
                             updateStatus.mutate({
                               taskId: task.id,
                               status:
-                                task.status === "done"
-                                  ? "todo"
-                                  : task.status === "todo"
+                                task.status === "completed"
+                                  ? "pending"
+                                  : task.status === "pending"
                                     ? "in_progress"
-                                    : "done",
+                                    : "completed",
                             })
                           }
                           className="mt-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -330,7 +326,7 @@ export default function TasksPage() {
                         </div>
                         <div className="min-w-0">
                           <p
-                            className={`text-sm font-medium ${task.status === "done" ? "line-through text-slate-400" : "text-slate-900"}`}
+                            className={`text-sm font-medium ${task.status === "completed" ? "line-through text-slate-400" : "text-slate-900"}`}
                           >
                             {task.title}
                           </p>

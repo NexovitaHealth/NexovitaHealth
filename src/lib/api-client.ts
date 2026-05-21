@@ -1,6 +1,6 @@
 /**
  * Nexovita API Client
- * Provides typed methods for every resource.
+ * Provides typed methods for implemented API resources only.
  */
 
 const BASE = "/api";
@@ -37,6 +37,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return json.data as T;
 }
 
+async function download(path: string, options: RequestInit = {}): Promise<Blob> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const json = await res
+      .json()
+      .catch(() => ({ error: `Request failed: ${res.status}` }));
+    throw new ApiError(res.status, json.error ?? "Request failed");
+  }
+
+  return res.blob();
+}
+
 function get<T>(path: string) {
   return request<T>(path, { method: "GET" });
 }
@@ -64,12 +80,21 @@ export const auth = {
     email: string;
     password: string;
     fullName: string;
-    role: string;
-    agencyId?: string;
+    phone?: string;
+    inviteToken?: string;
+    orgName?: string;
   }) => post("/auth/register", data),
 
   login: (email: string, password: string) =>
-    post<{ user: { id: string; email: string; profile: any } }>("/auth/login", {
+    post<{
+      user: {
+        id: string;
+        email: string;
+        fullName: string;
+        role: string;
+        orgMemberships: unknown[];
+      };
+    }>("/auth/login", {
       email,
       password,
     }),
@@ -79,174 +104,166 @@ export const auth = {
   me: () => get<any>("/auth/me"),
 
   forgotPassword: (email: string) => post("/auth/forgot-password", { email }),
-
-  resetPassword: (token: string, password: string) =>
-    post("/auth/reset-password", { token, password }),
 };
 
-// =============================================
-// Patients
-// =============================================
-export const patients = {
-  list: (params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    status?: string;
-    riskLevel?: string;
-    careSetting?: string;
-    sortBy?: string;
-    sortDir?: "asc" | "desc";
-  }) => {
-    const qs = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== undefined) qs.set(k, String(v));
-      });
-    }
-    return request<{ data: any[]; meta: any }>(`/patients?${qs}`);
-  },
+function query(params?: Record<string, string | number | boolean | undefined>) {
+  const qs = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) qs.set(key, String(value));
+    });
+  }
+  const value = qs.toString();
+  return value ? `?${value}` : "";
+}
 
-  get: (id: string) => get<any>(`/patients/${id}`),
+export function orgApi(orgId: string) {
+  const orgBase = `/orgs/${orgId}`;
+  return {
+    patients: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        search?: string;
+        status?: string;
+        riskLevel?: string;
+      }) => get<any[]>(`${orgBase}/patients${query(params)}`),
+      get: (patientId: string) => get<any>(`${orgBase}/patients/${patientId}`),
+      create: (data: unknown) => post<any>(`${orgBase}/patients`, data),
+      update: (patientId: string, data: unknown) =>
+        patch<any>(`${orgBase}/patients/${patientId}`, data),
+      delete: (patientId: string) => del<any>(`${orgBase}/patients/${patientId}`),
+      vitals: {
+        list: (patientId: string, limit = 20) =>
+          get<any[]>(`${orgBase}/patients/${patientId}/vitals?limit=${limit}`),
+        create: (patientId: string, data: unknown) =>
+          post<any>(`${orgBase}/patients/${patientId}/vitals`, data),
+      },
+    },
+    projects: {
+      list: () => get<any[]>(`${orgBase}/projects`),
+      create: (data: unknown) => post<any>(`${orgBase}/projects`, data),
+    },
+    tasks: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        search?: string;
+        status?: string;
+        priority?: string;
+        projectId?: string;
+      }) => get<any[]>(`${orgBase}/tasks${query(params)}`),
+      get: (taskId: string) => get<any>(`${orgBase}/tasks/${taskId}`),
+      create: (data: unknown) => post<any>(`${orgBase}/tasks`, data),
+      update: (taskId: string, data: unknown) =>
+        patch<any>(`${orgBase}/tasks/${taskId}`, data),
+      delete: (taskId: string) => del<any>(`${orgBase}/tasks/${taskId}`),
+    },
+    members: {
+      list: () => get<any[]>(`${orgBase}/members`),
+      remove: (userId: string) =>
+        request<{ removed: boolean }>(`${orgBase}/members`, {
+          method: "DELETE",
+          body: JSON.stringify({ userId }),
+          headers: { "Content-Type": "application/json" },
+        }),
+    },
+    invitations: {
+      list: () => get<any[]>(`${orgBase}/invite`),
+      invite: (email: string, role: string) =>
+        post<any>(`${orgBase}/invite`, { email, role }),
+    },
+    audit: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        resourceType?: string;
+        actorId?: string;
+      }) => get<any[]>(`${orgBase}/audit${query(params)}`),
+    },
+    labs: {
+      list: (params?: { search?: string; status?: string; limit?: number }) =>
+        get<any[]>(`${orgBase}/labs${query(params)}`),
+    },
+    schedule: {
+      list: (params?: { startDate?: string; endDate?: string }) =>
+        get<any[]>(`${orgBase}/schedule${query(params)}`),
+    },
+    messages: {
+      threads: () => get<any[]>(`${orgBase}/messages/threads`),
+      thread: (threadId: string) =>
+        get<any[]>(`${orgBase}/messages/threads/${threadId}`),
+      send: (data: {
+        threadId?: string;
+        recipientIds?: string[];
+        patientId?: string;
+        subject?: string;
+        content: string;
+      }) => post<any>(`${orgBase}/messages`, data),
+    },
+    reports: {
+      get: (type: string, range = "30d") =>
+        get<any>(`${orgBase}/reports/${type}?range=${range}`),
+      exportCsv: (type: string, range = "30d") =>
+        download(`${orgBase}/reports/${type}/export?range=${range}`, {
+          headers: { Accept: "text/csv" },
+        }),
+    },
+  };
+}
 
-  create: (data: any) => post<any>("/patients", data),
-
-  update: (id: string, data: any) => patch<any>(`/patients/${id}`, data),
-
-  delete: (id: string) => del<any>(`/patients/${id}`),
-
-  vitals: {
-    list: (patientId: string, days = 90) =>
-      request<{ data: any[]; meta: any }>(
-        `/patients/${patientId}/vitals?days=${days}`,
-      ),
-    create: (patientId: string, data: any) =>
-      post<any>(`/patients/${patientId}/vitals`, data),
-  },
-
-  medications: {
-    list: (patientId: string) =>
-      get<any[]>(`/patients/${patientId}/medications`),
-    create: (patientId: string, data: any) =>
-      post<any>(`/patients/${patientId}/medications`, data),
-  },
-
-  carePlans: {
-    list: (patientId: string) =>
-      get<any[]>(`/patients/${patientId}/care-plans`),
-    create: (patientId: string, data: any) =>
-      post<any>(`/patients/${patientId}/care-plans`, data),
-  },
-
-  visits: {
-    list: (patientId: string) => get<any[]>(`/patients/${patientId}/visits`),
-  },
-
-  documents: {
-    list: (patientId: string) => get<any[]>(`/patients/${patientId}/documents`),
-  },
-
-  activity: {
-    list: (patientId: string) => get<any[]>(`/patients/${patientId}/activity`),
-  },
-};
-
-// =============================================
-// Dashboard
-// =============================================
-export const dashboard = {
-  stats: () => get<any>("/dashboard/stats"),
-};
-
-// =============================================
-// Claims
-// =============================================
-export const claims = {
-  list: (params?: { page?: number; status?: string; patientId?: string }) => {
-    const qs = new URLSearchParams();
-    if (params)
-      Object.entries(params).forEach(([k, v]) => v && qs.set(k, String(v)));
-    return request<{ data: any[]; meta: any }>(`/claims?${qs}`);
-  },
-  create: (data: any) => post<any>("/claims", data),
-  update: (id: string, data: any) => patch<any>(`/claims/${id}`, data),
-};
-
-// =============================================
-// Audit
-// =============================================
 export const audit = {
-  list: (params?: {
-    page?: number;
-    resourceType?: string;
-    action?: string;
-    from?: string;
-    to?: string;
-  }) => {
-    const qs = new URLSearchParams();
-    if (params)
-      Object.entries(params).forEach(([k, v]) => v && qs.set(k, String(v)));
-    return request<{ data: any[]; meta: any }>(`/audit?${qs}`);
-  },
+  forOrg: (orgId: string) => orgApi(orgId).audit,
 };
 
-// =============================================
-// Invitations
-// =============================================
+export const patients = {
+  forOrg: (orgId: string) => orgApi(orgId).patients,
+};
+
+export const tasks = {
+  forOrg: (orgId: string) => orgApi(orgId).tasks,
+};
+
+export const projects = {
+  forOrg: (orgId: string) => orgApi(orgId).projects,
+};
+
+export const messages = {
+  forOrg: (orgId: string) => orgApi(orgId).messages,
+};
+
+export const reports = {
+  forOrg: (orgId: string) => orgApi(orgId).reports,
+};
+
+export const labs = {
+  forOrg: (orgId: string) => orgApi(orgId).labs,
+};
+
+export const schedule = {
+  forOrg: (orgId: string) => orgApi(orgId).schedule,
+};
+
+export const members = {
+  forOrg: (orgId: string) => orgApi(orgId).members,
+};
+
 export const invitations = {
-  list: () => get<any[]>("/invitations"),
-  invite: (email: string, role: string) =>
-    post<any>("/invitations", { email, role }),
-  accept: (token: string, password: string, fullName: string) =>
-    post<any>(`/invitations/${token}/accept`, { password, fullName }),
-};
-
-// =============================================
-// Agencies
-// =============================================
-export const agencies = {
-  create: (data: any) => post<any>("/agencies", data),
-  get: (id: string) => get<any>(`/agencies/${id}`),
-  update: (id: string, data: any) => patch<any>(`/agencies/${id}`, data),
-  members: (id: string) => get<any[]>(`/agencies/${id}/members`),
-};
-
-// =============================================
-// Visits
-// =============================================
-export const visits = {
-  list: (params?: { page?: number; status?: string; staffId?: string }) => {
-    const qs = new URLSearchParams();
-    if (params)
-      Object.entries(params).forEach(([k, v]) => v && qs.set(k, String(v)));
-    return request<{ data: any[]; meta: any }>(`/visits?${qs}`);
-  },
-  create: (data: any) => post<any>("/visits", data),
-  update: (id: string, data: any) => patch<any>(`/visits/${id}`, data),
-  checkin: (id: string, lat?: number, lng?: number) =>
-    patch<any>(`/visits/${id}`, {
-      status: "IN_PROGRESS",
-      checkInAt: new Date().toISOString(),
-      checkInLat: lat,
-      checkInLng: lng,
-    }),
-  checkout: (id: string, lat?: number, lng?: number) =>
-    patch<any>(`/visits/${id}`, {
-      status: "COMPLETED",
-      checkOutAt: new Date().toISOString(),
-      checkOutLat: lat,
-      checkOutLng: lng,
-    }),
+  forOrg: (orgId: string) => orgApi(orgId).invitations,
 };
 
 export { ApiError };
 export default {
   auth,
-  patients,
-  dashboard,
-  claims,
+  orgApi,
   audit,
+  patients,
+  tasks,
+  projects,
+  messages,
+  reports,
+  labs,
+  schedule,
+  members,
   invitations,
-  agencies,
-  visits,
 };
