@@ -1,26 +1,3 @@
-## TODO:
-
-- Incomplete src/components
-  - Vitals
-  - UI
-  - Tasks
-  - Shared
-  - Medications
-  - Dashboard
-  - Careplan
-  - Billing
-  - Auth
-  - Audit
-- Incomplete files
-  - app/api/invitations/[token]/accept
-  - ../dashboard/stats
-  - ../claims/[id]
-  - ../auth/register
-  - ../audit
-  - ../agencies/[id]
-- Forgot password
-  - src/app/api/auth/forgot-password/route.ts
-
 # Nexovita Health
 
 A production-grade multi-tenant health SaaS platform for home care, hospice, palliative, and school health agencies. Built with Next.js 14, Prisma, PostgreSQL, and JWT-based authentication.

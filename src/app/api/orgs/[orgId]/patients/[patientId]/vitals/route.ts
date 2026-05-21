@@ -105,6 +105,7 @@ export const POST = withOrgAccess(async (req, ctx, auth) => {
       await prisma.clinicalAlert.create({
         data: {
           patientId: patient.id,
+          orgId: auth.orgId!,
           vitalId: vital.id,
           alertType: "vital_threshold",
           ...alert,

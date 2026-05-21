@@ -830,6 +830,7 @@ model Announcement {
 model ClinicalAlert {
   id           String        @id @default(uuid())
   patientId    String        @map("patient_id")
+  orgId        String        @map("org_id")
   vitalId      String?       @map("vital_id")
   alertType    String        @map("alert_type") // "vital_threshold", "medication_due", etc.
   severity     AlertSeverity @default(warning)

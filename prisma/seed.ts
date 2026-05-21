@@ -245,6 +245,7 @@ async function main() {
     await prisma.clinicalAlert.create({
       data: {
         patientId: eleanorId,
+        orgId: org.id,
         severity: "critical",
         alertType: "vital_threshold",
         title: "Critical: Elevated BP and low SpO2",
