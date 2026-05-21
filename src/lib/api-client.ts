@@ -123,6 +123,11 @@ export const notifications = {
   markAllRead: () => patch<{ updated: number }>("/notifications", { isRead: true }),
 };
 
+export const settings = {
+  get: () => get<any>("/settings"),
+  update: (data: unknown) => patch<any>("/settings", data),
+};
+
 function query(params?: Record<string, string | number | boolean | undefined>) {
   const qs = new URLSearchParams();
   if (params) {
@@ -197,6 +202,10 @@ export function orgApi(orgId: string) {
         resourceType?: string;
         actorId?: string;
       }) => get<any[]>(`${orgBase}/audit${query(params)}`),
+    },
+    settings: {
+      get: () => get<any>(`${orgBase}/settings`),
+      update: (data: unknown) => patch<any>(`${orgBase}/settings`, data),
     },
     labs: {
       list: (params?: { search?: string; status?: string; limit?: number }) =>
@@ -317,12 +326,20 @@ export function orgApi(orgId: string) {
         download(`${orgBase}/reports/${type}/export?range=${range}`, {
           headers: { Accept: "text/csv" },
         }),
+      exportPdf: (type: string, range = "30d") =>
+        download(`${orgBase}/reports/${type}/export?range=${range}&format=pdf`, {
+          headers: { Accept: "application/pdf" },
+        }),
     },
   };
 }
 
 export const audit = {
   forOrg: (orgId: string) => orgApi(orgId).audit,
+};
+
+export const orgSettings = {
+  forOrg: (orgId: string) => orgApi(orgId).settings,
 };
 
 export const patients = {
@@ -377,8 +394,10 @@ export { ApiError };
 export default {
   auth,
   notifications,
+  settings,
   orgApi,
   audit,
+  orgSettings,
   patients,
   tasks,
   projects,

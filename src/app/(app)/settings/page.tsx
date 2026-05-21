@@ -1,6 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { orgApi, settings as settingsApi } from "@/lib/api-client";
 import {
   Settings,
   Building2,
@@ -15,10 +17,12 @@ import {
 type Tab = "profile" | "organization" | "notifications" | "security";
 
 export default function SettingsPage() {
-  const { user, activeOrg } = useAuth();
+  const { user, activeOrg, refresh } = useAuth();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [profile, setProfile] = useState({
     fullName: user?.fullName || "",
@@ -26,6 +30,24 @@ export default function SettingsPage() {
     phone: "",
     title: "",
     npiNumber: "",
+  });
+
+  const [organization, setOrganization] = useState({
+    name: activeOrg?.org.name || "",
+    slug: activeOrg?.org.slug || "",
+    address: "",
+    city: "",
+    region: "",
+    phone: "",
+    email: "",
+    website: "",
+    medicareProviderNumber: "",
+    npiNumber: "",
+    checkinTime: "07:30",
+    summaryTime: "20:00",
+    nationalHealthSystem: "",
+    primaryCareSetting: "",
+    supervisingNurse: "",
   });
 
   const [notifications, setNotifications] = useState({
@@ -37,12 +59,116 @@ export default function SettingsPage() {
     emailDigest: false,
   });
 
+  const { data: profileData } = useQuery({
+    queryKey: ["settings", "profile"],
+    queryFn: () => settingsApi.get(),
+  });
+
+  const { data: orgSettingsData } = useQuery({
+    queryKey: ["settings", "org", activeOrg?.orgId],
+    queryFn: () => orgApi(activeOrg!.orgId).settings.get(),
+    enabled: !!activeOrg?.orgId,
+  });
+
+  const profileMutation = useMutation({
+    mutationFn: () =>
+      settingsApi.update({
+        fullName: profile.fullName,
+        phone: profile.phone || null,
+        licenseType: profile.title || null,
+        npiNumber: profile.npiNumber || null,
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["settings", "profile"] });
+      await refresh();
+    },
+  });
+
+  const orgMutation = useMutation({
+    mutationFn: () =>
+      orgApi(activeOrg!.orgId).settings.update({
+        organization: {
+          name: organization.name,
+          address: organization.address || null,
+          city: organization.city || null,
+          region: organization.region || null,
+          phone: organization.phone || null,
+          email: organization.email || null,
+          website: organization.website || null,
+          medicareProviderNumber: organization.medicareProviderNumber || null,
+          npiNumber: organization.npiNumber || null,
+        },
+        settings: {
+          checkinTime: organization.checkinTime,
+          summaryTime: organization.summaryTime,
+          nationalHealthSystem: organization.nationalHealthSystem || null,
+          primaryCareSetting: organization.primaryCareSetting || null,
+          supervisingNurse: organization.supervisingNurse || null,
+          notificationPreferences: notifications,
+        },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["settings", "org", activeOrg?.orgId],
+      });
+      await refresh();
+    },
+  });
+
+  useEffect(() => {
+    const loadedProfile = profileData?.profile;
+    if (!loadedProfile) return;
+    setProfile({
+      fullName: loadedProfile.fullName || "",
+      email: loadedProfile.email || "",
+      phone: loadedProfile.phone || "",
+      title: loadedProfile.licenseType || "",
+      npiNumber: loadedProfile.npiNumber || "",
+    });
+  }, [profileData]);
+
+  useEffect(() => {
+    const loadedOrg = orgSettingsData?.organization;
+    if (!loadedOrg) return;
+
+    const prefs = loadedOrg.settings?.features?.notificationPreferences || {};
+    setOrganization({
+      name: loadedOrg.name || "",
+      slug: loadedOrg.slug || "",
+      address: loadedOrg.address || "",
+      city: loadedOrg.city || "",
+      region: loadedOrg.region || "",
+      phone: loadedOrg.phone || "",
+      email: loadedOrg.email || "",
+      website: loadedOrg.website || "",
+      medicareProviderNumber: loadedOrg.medicareProviderNumber || "",
+      npiNumber: loadedOrg.npiNumber || "",
+      checkinTime: loadedOrg.settings?.checkinTime || "07:30",
+      summaryTime: loadedOrg.settings?.summaryTime || "20:00",
+      nationalHealthSystem: loadedOrg.settings?.nationalHealthSystem || "",
+      primaryCareSetting: loadedOrg.settings?.primaryCareSetting || "",
+      supervisingNurse: loadedOrg.settings?.supervisingNurse || "",
+    });
+    setNotifications((current) => ({ ...current, ...prefs }));
+  }, [orgSettingsData]);
+
   const handleSave = async () => {
     setIsSaving(true);
-    await new Promise((r) => setTimeout(r, 800)); // Simulate API call
-    setSaved(true);
-    setIsSaving(false);
-    setTimeout(() => setSaved(false), 3000);
+    setSaveError(null);
+    try {
+      if (activeTab === "profile") {
+        await profileMutation.mutateAsync();
+      }
+      if (activeTab === "organization" || activeTab === "notifications") {
+        await orgMutation.mutateAsync();
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
@@ -133,10 +259,8 @@ export default function SettingsPage() {
                   <input
                     type="email"
                     value={profile.email}
-                    onChange={(e) =>
-                      setProfile((p) => ({ ...p, email: e.target.value }))
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                    readOnly
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -192,7 +316,13 @@ export default function SettingsPage() {
                       Organization Name
                     </label>
                     <input
-                      defaultValue={activeOrg.org.name}
+                      value={organization.name}
+                      onChange={(e) =>
+                        setOrganization((current) => ({
+                          ...current,
+                          name: e.target.value,
+                        }))
+                      }
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
                     />
                   </div>
@@ -205,8 +335,91 @@ export default function SettingsPage() {
                         nexovita.app/
                       </span>
                       <input
-                        defaultValue={activeOrg.org.slug}
+                        value={organization.slug}
+                        readOnly
                         className="flex-1 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        Phone
+                      </label>
+                      <input
+                        value={organization.phone}
+                        onChange={(e) =>
+                          setOrganization((current) => ({
+                            ...current,
+                            phone: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={organization.email}
+                        onChange={(e) =>
+                          setOrganization((current) => ({
+                            ...current,
+                            email: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                      Address
+                    </label>
+                    <input
+                      value={organization.address}
+                      onChange={(e) =>
+                        setOrganization((current) => ({
+                          ...current,
+                          address: e.target.value,
+                        }))
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        Check-in Time
+                      </label>
+                      <input
+                        type="time"
+                        value={organization.checkinTime}
+                        onChange={(e) =>
+                          setOrganization((current) => ({
+                            ...current,
+                            checkinTime: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                        Daily Summary Time
+                      </label>
+                      <input
+                        type="time"
+                        value={organization.summaryTime}
+                        onChange={(e) =>
+                          setOrganization((current) => ({
+                            ...current,
+                            summaryTime: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
                       />
                     </div>
                   </div>
@@ -385,6 +598,11 @@ export default function SettingsPage() {
           {/* Save button */}
           {activeTab !== "security" && (
             <div className="mt-4 flex items-center justify-end gap-3">
+              {saveError && (
+                <span className="text-sm text-red-600 font-medium">
+                  {saveError}
+                </span>
+              )}
               {saved && (
                 <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium">
                   <CheckCircle2 className="w-4 h-4" /> Saved successfully

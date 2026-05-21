@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
 import {
   BarChart3,
+  ChevronDown,
   Download,
   Calendar,
   Users,
@@ -103,6 +104,7 @@ export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<ReportType>("census");
   const [dateRange, setDateRange] = useState("30d");
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["report", orgId, selectedReport, dateRange],
@@ -120,13 +122,14 @@ export default function ReportsPage() {
   const stats = reportData?.summary || {};
   const chartData = reportData?.chartData || [];
 
-  const handleExport = async () => {
+  const handleExport = async (format: "csv" | "pdf") => {
+    setIsExportMenuOpen(false);
     setIsExporting(true);
     try {
       const res = await fetch(
-        `/api/orgs/${orgId}/reports/${selectedReport}/export?range=${dateRange}`,
+        `/api/orgs/${orgId}/reports/${selectedReport}/export?range=${dateRange}&format=${format}`,
         {
-          headers: { Accept: "text/csv" },
+          headers: { Accept: format === "pdf" ? "application/pdf" : "text/csv" },
         },
       );
       if (res.ok) {
@@ -134,7 +137,7 @@ export default function ReportsPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `nexovita-${selectedReport}-${dateRange}.csv`;
+        a.download = `nexovita-${selectedReport}-${dateRange}.${format}`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -168,18 +171,37 @@ export default function ReportsPage() {
               </option>
             ))}
           </select>
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
-          >
-            {isExporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
+          <div className="relative">
+            <button
+              onClick={() => setIsExportMenuOpen((open) => !open)}
+              disabled={isExporting}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            >
+              {isExporting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Export
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            {isExportMenuOpen && (
+              <div className="absolute right-0 z-10 mt-2 w-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                <button
+                  onClick={() => handleExport("csv")}
+                  className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => handleExport("pdf")}
+                  className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Export PDF
+                </button>
+              </div>
             )}
-            Export CSV
-          </button>
+          </div>
         </div>
       </div>
 
