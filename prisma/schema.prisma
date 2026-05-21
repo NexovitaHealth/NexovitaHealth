@@ -100,6 +100,50 @@ enum AlertSeverity {
   critical
 }
 
+enum ClinicalReviewStatus {
+  open
+  in_review
+  resolved
+  cancelled
+}
+
+enum PhysicianOrderStatus {
+  draft
+  active
+  completed
+  discontinued
+  cancelled
+}
+
+enum VisitTaskStatus {
+  pending
+  completed
+  skipped
+  refused
+}
+
+enum IncidentStatus {
+  reported
+  triaged
+  resolved
+  closed
+}
+
+enum FamilyCaregiverStatus {
+  pending
+  approved
+  revoked
+  rejected
+}
+
+enum PayerAuthorisationStatus {
+  active
+  pending
+  exhausted
+  expired
+  cancelled
+}
+
 // CORE: USERS
 
 model User {
@@ -150,6 +194,15 @@ model User {
   vitalReadings     PatientVital[]  @relation("VitalRecordedBy")
   visitLogsRecorded VisitLog[]      @relation("VisitLoggedBy")
   patientsAssigned  PatientCareTeam[]
+  physicianOrders   PhysicianOrder[] @relation("PhysicianOrders")
+  escalationsCreated Escalation[]    @relation("EscalationsCreated")
+  escalationsAssigned Escalation[]   @relation("EscalationsAssigned")
+  visitTasksAssigned VisitTask[]     @relation("VisitTasksAssigned")
+  visitTasksCompleted VisitTask[]    @relation("VisitTasksCompleted")
+  incidentsReported Incident[]       @relation("IncidentsReported")
+  incidentsAssigned Incident[]       @relation("IncidentsAssigned")
+  familyCaregiverAccounts FamilyCaregiverAccount[] @relation("FamilyCaregiverUser")
+  familyCaregiverApprovals FamilyCaregiverAccount[] @relation("FamilyCaregiverApprovedBy")
 
   @@index([email])
   @@index([role])
@@ -226,6 +279,12 @@ model Organization {
   messages              Message[]
   messageThreads        MessageThread[]
   clinicalAlerts        ClinicalAlert[]
+  physicianOrders       PhysicianOrder[]
+  escalations           Escalation[]
+  visitTasks            VisitTask[]
+  incidents             Incident[]
+  familyCaregiverAccounts FamilyCaregiverAccount[]
+  payerAuthorisations   PayerAuthorisation[]
   fileAttachments       FileAttachment[]
 
   @@index([slug])
@@ -370,6 +429,12 @@ model Patient {
   auditLogs         AuditLog[]
   alerts            ClinicalAlert[]
   carePlans         CarePlan[]
+  physicianOrders   PhysicianOrder[]
+  escalations       Escalation[]
+  visitTasks        VisitTask[]
+  incidents         Incident[]
+  familyCaregiverAccounts FamilyCaregiverAccount[]
+  payerAuthorisations PayerAuthorisation[]
   fileAttachments   FileAttachment[]
   messageThreads    MessageThread[]
 
@@ -423,6 +488,7 @@ model PatientVital {
   patient          Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   recordedBy       User      @relation("VitalRecordedBy", fields: [recordedById], references: [id])
   alerts           ClinicalAlert[]
+  escalations      Escalation[]
 
   @@index([patientId])
   @@index([recordedAt])
@@ -462,6 +528,9 @@ model VisitLog {
 
   patient         Patient     @relation(fields: [patientId], references: [id])
   loggedBy        User        @relation("VisitLoggedBy", fields: [loggedById], references: [id])
+  visitTasks      VisitTask[]
+  incidents       Incident[]
+  escalations     Escalation[]
 
   @@index([patientId])
   @@index([loggedById])
@@ -598,6 +667,7 @@ model CarePlan {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   patient     Patient  @relation(fields: [patientId], references: [id])
+  physicianOrders PhysicianOrder[]
 
   @@index([patientId])
   @@map("care_plans")
@@ -686,6 +756,224 @@ model LabResult {
 
   @@index([labOrderId])
   @@map("lab_results")
+}
+
+// CLINICAL WORKFLOWS
+
+model PhysicianOrder {
+  id             String               @id @default(uuid())
+  orgId          String               @map("org_id")
+  patientId      String               @map("patient_id")
+  physicianId    String               @map("physician_id")
+  carePlanId     String?              @map("care_plan_id")
+  escalationId   String?              @map("escalation_id")
+
+  orderType      String               @map("order_type")
+  title          String
+  instructions   String
+  status         PhysicianOrderStatus @default(draft)
+  effectiveAt    DateTime?            @map("effective_at")
+  expiresAt      DateTime?            @map("expires_at")
+  signedAt       DateTime?            @map("signed_at")
+  discontinuedAt DateTime?            @map("discontinued_at")
+  metadata       Json                 @default("{}")
+
+  deletedAt      DateTime?            @map("deleted_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  org            Organization         @relation(fields: [orgId], references: [id])
+  patient        Patient              @relation(fields: [patientId], references: [id])
+  physician      User                 @relation("PhysicianOrders", fields: [physicianId], references: [id])
+  carePlan       CarePlan?            @relation(fields: [carePlanId], references: [id])
+  escalation     Escalation?          @relation(fields: [escalationId], references: [id])
+
+  @@index([orgId])
+  @@index([patientId])
+  @@index([physicianId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("physician_orders")
+}
+
+model Escalation {
+  id             String               @id @default(uuid())
+  orgId          String               @map("org_id")
+  patientId      String               @map("patient_id")
+  createdById    String               @map("created_by_id")
+  assignedToId   String?              @map("assigned_to_id")
+  sourceVitalId  String?              @map("source_vital_id")
+  sourceVisitId  String?              @map("source_visit_id")
+  incidentId     String?              @map("incident_id")
+
+  severity       AlertSeverity        @default(warning)
+  status         ClinicalReviewStatus @default(open)
+  category       String
+  title          String
+  description    String
+  clinicalResponse String?            @map("clinical_response")
+  resolvedAt     DateTime?            @map("resolved_at")
+  metadata       Json                 @default("{}")
+
+  deletedAt      DateTime?            @map("deleted_at")
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+
+  org            Organization         @relation(fields: [orgId], references: [id])
+  patient        Patient              @relation(fields: [patientId], references: [id])
+  createdBy      User                 @relation("EscalationsCreated", fields: [createdById], references: [id])
+  assignedTo     User?                @relation("EscalationsAssigned", fields: [assignedToId], references: [id])
+  sourceVital    PatientVital?        @relation(fields: [sourceVitalId], references: [id])
+  sourceVisit    VisitLog?            @relation(fields: [sourceVisitId], references: [id])
+  incident       Incident?            @relation(fields: [incidentId], references: [id])
+  physicianOrders PhysicianOrder[]
+
+  @@index([orgId])
+  @@index([patientId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([status, severity])
+  @@index([deletedAt])
+  @@map("escalations")
+}
+
+model VisitTask {
+  id             String          @id @default(uuid())
+  orgId          String          @map("org_id")
+  patientId      String          @map("patient_id")
+  visitLogId     String          @map("visit_log_id")
+  assignedToId   String?         @map("assigned_to_id")
+  completedById  String?         @map("completed_by_id")
+
+  title          String
+  instructions   String?
+  category       String?
+  status         VisitTaskStatus @default(pending)
+  required       Boolean         @default(true)
+  position       Int             @default(0)
+  completedAt    DateTime?       @map("completed_at")
+  notes          String?
+
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  org            Organization    @relation(fields: [orgId], references: [id])
+  patient        Patient         @relation(fields: [patientId], references: [id])
+  visitLog       VisitLog        @relation(fields: [visitLogId], references: [id], onDelete: Cascade)
+  assignedTo     User?           @relation("VisitTasksAssigned", fields: [assignedToId], references: [id])
+  completedBy    User?           @relation("VisitTasksCompleted", fields: [completedById], references: [id])
+
+  @@index([orgId])
+  @@index([patientId])
+  @@index([visitLogId])
+  @@index([assignedToId])
+  @@index([status])
+  @@map("visit_tasks")
+}
+
+model Incident {
+  id             String         @id @default(uuid())
+  orgId          String         @map("org_id")
+  patientId      String         @map("patient_id")
+  visitLogId     String?        @map("visit_log_id")
+  reportedById   String         @map("reported_by_id")
+  assignedToId   String?        @map("assigned_to_id")
+
+  incidentType   String         @map("incident_type")
+  severity       AlertSeverity  @default(warning)
+  status         IncidentStatus @default(reported)
+  description    String
+  immediateAction String?       @map("immediate_action")
+  occurredAt     DateTime       @map("occurred_at")
+  resolvedAt     DateTime?      @map("resolved_at")
+  resolution     String?
+  metadata       Json           @default("{}")
+
+  deletedAt      DateTime?      @map("deleted_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  org            Organization   @relation(fields: [orgId], references: [id])
+  patient        Patient        @relation(fields: [patientId], references: [id])
+  visitLog       VisitLog?      @relation(fields: [visitLogId], references: [id])
+  reportedBy     User           @relation("IncidentsReported", fields: [reportedById], references: [id])
+  assignedTo     User?          @relation("IncidentsAssigned", fields: [assignedToId], references: [id])
+  escalations    Escalation[]
+
+  @@index([orgId])
+  @@index([patientId])
+  @@index([visitLogId])
+  @@index([reportedById])
+  @@index([assignedToId])
+  @@index([status, severity])
+  @@index([deletedAt])
+  @@map("incidents")
+}
+
+model FamilyCaregiverAccount {
+  id             String                @id @default(uuid())
+  orgId          String                @map("org_id")
+  patientId      String                @map("patient_id")
+  userId         String                @map("user_id")
+  approvedById   String?               @map("approved_by_id")
+
+  relationship   String
+  status         FamilyCaregiverStatus @default(pending)
+  accessLevel    String                @default("read_only") @map("access_level")
+  canViewSchedule Boolean              @default(true) @map("can_view_schedule")
+  canViewCarePlan Boolean              @default(true) @map("can_view_care_plan")
+  canViewVitals  Boolean               @default(true) @map("can_view_vitals")
+  canMessageCareTeam Boolean           @default(true) @map("can_message_care_team")
+  approvedAt     DateTime?             @map("approved_at")
+  revokedAt      DateTime?             @map("revoked_at")
+
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @updatedAt @map("updated_at")
+
+  org            Organization          @relation(fields: [orgId], references: [id])
+  patient        Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  user           User                  @relation("FamilyCaregiverUser", fields: [userId], references: [id], onDelete: Cascade)
+  approvedBy     User?                 @relation("FamilyCaregiverApprovedBy", fields: [approvedById], references: [id])
+
+  @@unique([patientId, userId])
+  @@index([orgId])
+  @@index([patientId])
+  @@index([userId])
+  @@index([status])
+  @@map("family_caregiver_accounts")
+}
+
+model PayerAuthorisation {
+  id                  String                   @id @default(uuid())
+  orgId               String                   @map("org_id")
+  patientId           String                   @map("patient_id")
+
+  payerName           String                   @map("payer_name")
+  payerType           String?                  @map("payer_type")
+  authorisationNumber String                   @map("authorisation_number")
+  serviceCode         String?                  @map("service_code")
+  status              PayerAuthorisationStatus @default(pending)
+  startDate           DateTime                 @map("start_date")
+  endDate             DateTime                 @map("end_date")
+  unitsAuthorised     Int                      @map("units_authorised")
+  unitsUsed           Int                      @default(0) @map("units_used")
+  unitType            String                   @default("visit") @map("unit_type")
+  notes               String?
+
+  deletedAt           DateTime?                @map("deleted_at")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+
+  org                 Organization             @relation(fields: [orgId], references: [id])
+  patient             Patient                  @relation(fields: [patientId], references: [id])
+
+  @@unique([orgId, authorisationNumber])
+  @@index([orgId])
+  @@index([patientId])
+  @@index([status])
+  @@index([endDate])
+  @@index([deletedAt])
+  @@map("payer_authorisations")
 }
 
 // DOCUMENTS & FILE ATTACHMENTS

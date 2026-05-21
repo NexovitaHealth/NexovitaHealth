@@ -80,6 +80,44 @@ export type AlertSeverity =
   | 'warning'
   | 'critical'
 
+export type ClinicalReviewStatus =
+  | 'open'
+  | 'in_review'
+  | 'resolved'
+  | 'cancelled'
+
+export type PhysicianOrderStatus =
+  | 'draft'
+  | 'active'
+  | 'completed'
+  | 'discontinued'
+  | 'cancelled'
+
+export type VisitTaskStatus =
+  | 'pending'
+  | 'completed'
+  | 'skipped'
+  | 'refused'
+
+export type IncidentStatus =
+  | 'reported'
+  | 'triaged'
+  | 'resolved'
+  | 'closed'
+
+export type FamilyCaregiverStatus =
+  | 'pending'
+  | 'approved'
+  | 'revoked'
+  | 'rejected'
+
+export type PayerAuthorisationStatus =
+  | 'active'
+  | 'pending'
+  | 'exhausted'
+  | 'expired'
+  | 'cancelled'
+
 // Role label maps for display
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
   superadmin: 'Super Admin',
