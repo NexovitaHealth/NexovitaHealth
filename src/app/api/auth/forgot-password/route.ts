@@ -1,25 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { success, serverError, validationError } from "@/lib/api-response";
+import { sendPasswordResetEmail } from "@/lib/email";
+import { createPasswordResetToken } from "@/lib/password-reset";
 
 export const dynamic = "force-dynamic";
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email(),
+});
+
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
-    if (!email)
-      return NextResponse.json({ error: "Email required" }, { status: 400 });
+    const body = await req.json();
+    const parsed = forgotPasswordSchema.safeParse(body);
+    if (!parsed.success) return validationError(parsed.error);
 
     // Always return 200 to prevent user enumeration
-    const user = await prisma.user.findUnique({ where: { email } });
+    const email = parsed.data.email.toLowerCase();
+    const user = await prisma.user.findUnique({
+      where: { email, deletedAt: null, isActive: true },
+      select: { id: true, email: true },
+    });
     if (user) {
-      // TODO: generate password reset token, store in DB, send email via nodemailer
-      // This is a stub — in production wire up the email service here
-      console.log(`[Password Reset] Token would be sent to: ${email}`);
+      const reset = createPasswordResetToken();
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          resetToken: reset.tokenHash,
+          resetTokenExpiry: reset.expiresAt,
+        },
+      });
+
+      await sendPasswordResetEmail(user.email, reset.token).catch((err) => {
+        console.error("[Password Reset] Failed to send reset email", err);
+      });
     }
 
-    return NextResponse.json({ ok: true });
+    return success({ ok: true });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return serverError(err);
   }
 }

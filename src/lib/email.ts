@@ -13,11 +13,30 @@ const transporter = nodemailer.createTransport({
 const FROM = process.env.EMAIL_FROM || 'Nexovita Health <noreply@nexovita.com>'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
-  const resetUrl = `${APP_URL}/reset-password?token=${token}`
+function hasSmtpConfig() {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)
+}
+
+async function sendMail(options: {
+  to: string
+  subject: string
+  html: string
+}) {
+  if (!hasSmtpConfig()) {
+    console.warn(`[Email] SMTP is not configured; skipped email to ${options.to}`)
+    return
+  }
 
   await transporter.sendMail({
     from: FROM,
+    ...options,
+  })
+}
+
+export async function sendPasswordResetEmail(email: string, token: string): Promise<void> {
+  const resetUrl = `${APP_URL}/reset-password?token=${token}`
+
+  await sendMail({
     to: email,
     subject: 'Reset your Nexovita Health password',
     html: `
@@ -49,10 +68,9 @@ export async function sendInvitationEmail(params: {
   role: string
   token: string
 }): Promise<void> {
-  const acceptUrl = `${APP_URL}/invitations/${params.token}/accept`
+  const acceptUrl = `${APP_URL}/register?inviteToken=${params.token}`
 
-  await transporter.sendMail({
-    from: FROM,
+  await sendMail({
     to: params.email,
     subject: `You've been invited to join ${params.agencyName} on Nexovita Health`,
     html: `
@@ -77,8 +95,7 @@ export async function sendInvitationEmail(params: {
 export async function sendEmailVerification(email: string, token: string): Promise<void> {
   const verifyUrl = `${APP_URL}/verify-email?token=${token}`
 
-  await transporter.sendMail({
-    from: FROM,
+  await sendMail({
     to: email,
     subject: 'Verify your Nexovita Health email',
     html: `
@@ -94,6 +111,41 @@ export async function sendEmailVerification(email: string, token: string): Promi
           text-decoration: none;
           margin: 16px 0;
         ">Verify Email</a>
+      </div>
+    `,
+  })
+}
+
+export async function sendCriticalAlertEmail(params: {
+  email: string
+  recipientName: string
+  patientName: string
+  alertTitle: string
+  alertBody: string
+  actionUrl: string
+}): Promise<void> {
+  await sendMail({
+    to: params.email,
+    subject: `Critical patient alert: ${params.patientName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #b42318;">Critical Patient Alert</h2>
+        <p>Hello ${params.recipientName},</p>
+        <p><strong>${params.patientName}</strong> has a critical alert that needs review.</p>
+        <div style="border-left: 4px solid #b42318; padding-left: 12px; margin: 16px 0;">
+          <p style="font-weight: 700; margin: 0 0 8px;">${params.alertTitle}</p>
+          <p style="margin: 0;">${params.alertBody}</p>
+        </div>
+        <a href="${params.actionUrl}" style="
+          display: inline-block;
+          background: #b42318;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 6px;
+          text-decoration: none;
+          margin: 16px 0;
+        ">Open Patient Chart</a>
+        <p style="color: #666; font-size: 14px;">This message does not include the full chart. Sign in to Nexovita to review details.</p>
       </div>
     `,
   })

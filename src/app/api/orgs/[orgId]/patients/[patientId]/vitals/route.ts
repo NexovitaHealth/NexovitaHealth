@@ -11,6 +11,7 @@ import {
 } from "@/lib/api-response";
 import { createAuditLog } from "@/lib/audit";
 import { AuditAction } from "@/types";
+import { notifyCriticalClinicalAlert } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -101,8 +102,9 @@ export const POST = withOrgAccess(async (req, ctx, auth) => {
       });
     }
 
+    const createdAlerts = [];
     for (const alert of alertsToCreate) {
-      await prisma.clinicalAlert.create({
+      const createdAlert = await prisma.clinicalAlert.create({
         data: {
           patientId: patient.id,
           orgId: auth.orgId!,
@@ -110,6 +112,20 @@ export const POST = withOrgAccess(async (req, ctx, auth) => {
           alertType: "vital_threshold",
           ...alert,
         },
+      });
+      createdAlerts.push(createdAlert);
+    }
+
+    for (const alert of createdAlerts) {
+      if (alert.severity !== "critical") continue;
+      await notifyCriticalClinicalAlert({
+        orgId: auth.orgId!,
+        patientId: patient.id,
+        patientName: patient.fullName,
+        alertId: alert.id,
+        title: alert.title,
+        body: alert.body,
+        vitalId: vital.id,
       });
     }
 
@@ -120,11 +136,11 @@ export const POST = withOrgAccess(async (req, ctx, auth) => {
       resourceType: "vital",
       resourceId: vital.id,
       patientId: patient.id,
-      metadata: { vitalId: vital.id, alertsCreated: alertsToCreate.length },
+      metadata: { vitalId: vital.id, alertsCreated: createdAlerts.length },
       req,
     });
 
-    return created({ vital, alerts: alertsToCreate });
+    return created({ vital, alerts: createdAlerts });
   } catch (err) {
     return serverError(err);
   }

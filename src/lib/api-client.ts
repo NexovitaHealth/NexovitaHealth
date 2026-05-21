@@ -104,6 +104,23 @@ export const auth = {
   me: () => get<any>("/auth/me"),
 
   forgotPassword: (email: string) => post("/auth/forgot-password", { email }),
+
+  resetPassword: (token: string, password: string) =>
+    post("/auth/reset-password", { token, password }),
+};
+
+export const notifications = {
+  list: (params?: {
+    page?: number;
+    pageSize?: number;
+    isRead?: boolean;
+    type?: string;
+  }) => get<any[]>(`/notifications${query(params)}`),
+  mark: (notificationId: string, isRead = true) =>
+    patch<any>(`/notifications/${notificationId}`, { isRead }),
+  markMany: (notificationIds?: string[], isRead = true) =>
+    patch<{ updated: number }>("/notifications", { notificationIds, isRead }),
+  markAllRead: () => patch<{ updated: number }>("/notifications", { isRead: true }),
 };
 
 function query(params?: Record<string, string | number | boolean | undefined>) {
@@ -359,6 +376,7 @@ export const invitations = {
 export { ApiError };
 export default {
   auth,
+  notifications,
   orgApi,
   audit,
   patients,

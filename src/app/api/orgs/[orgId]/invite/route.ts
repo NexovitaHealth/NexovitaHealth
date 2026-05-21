@@ -10,6 +10,8 @@ import {
   error,
 } from "@/lib/api-response";
 import { createAuditLog } from "@/lib/audit";
+import { sendInvitationEmail } from "@/lib/email";
+import { createNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +62,10 @@ export const POST = withOrgAccess(async (req, _ctx, auth) => {
         role,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       },
+      include: {
+        org: { select: { id: true, name: true } },
+        inviter: { select: { id: true, fullName: true } },
+      },
     });
 
     await createAuditLog({
@@ -72,12 +78,36 @@ export const POST = withOrgAccess(async (req, _ctx, auth) => {
       req,
     });
 
-    // TODO: Send invitation email via nodemailer
-    // await sendInvitationEmail(email, invitation.token, org.name)
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/register?inviteToken=${invitation.token}`;
+
+    await sendInvitationEmail({
+      email: invitation.email,
+      inviterName: invitation.inviter.fullName,
+      agencyName: invitation.org.name,
+      role,
+      token: invitation.token,
+    }).catch((err) => {
+      console.error("[Invite] Failed to send invitation email", err);
+    });
+
+    if (existingUser) {
+      await createNotification({
+        userId: existingUser.id,
+        type: "invite",
+        title: `Invitation to join ${invitation.org.name}`,
+        body: `${invitation.inviter.fullName} invited you to join ${invitation.org.name}.`,
+        actionUrl: inviteUrl,
+        metadata: {
+          orgId: invitation.orgId,
+          invitationId: invitation.id,
+          role,
+        },
+      });
+    }
 
     return success({
       invitation,
-      inviteUrl: `${process.env.NEXT_PUBLIC_APP_URL}/invite/${invitation.token}`,
+      inviteUrl,
     });
   } catch (err) {
     return serverError(err);
