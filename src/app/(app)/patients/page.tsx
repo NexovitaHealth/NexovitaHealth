@@ -1,9 +1,16 @@
 "use client";
 import { Suspense, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
+import { isPhysicianPortalRole } from "@/lib/physician-nav";
+import {
+  assignedToMeFromScope,
+  caseloadScopeFromParam,
+  type PatientCaseloadScope,
+} from "@/lib/patient-list-scope";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Users,
   Plus,
@@ -17,12 +24,45 @@ import Link from "next/link";
 import { NewPatientModal } from "@/components/patients/NewPatientModal";
 
 function PatientsPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { orgId } = useApi();
   const { request } = useApi();
+  const { user } = useAuth();
+  const { can } = usePermissions();
   const [search, setSearch] = useState("");
 
-  const assignedToMe = searchParams.get("assignedToMe") === "true";
+  const physicianMode =
+    isPhysicianPortalRole(user?.role) || can("physician:portal");
+
+  const [caseloadScope, setCaseloadScope] = useState<PatientCaseloadScope>(
+    () => caseloadScopeFromParam(physicianMode, searchParams.get("assignedToMe")),
+  );
+
+  useEffect(() => {
+    if (!physicianMode) return;
+    setCaseloadScope(
+      caseloadScopeFromParam(true, searchParams.get("assignedToMe")),
+    );
+  }, [physicianMode, searchParams]);
+
+  const assignedToMe = assignedToMeFromScope(physicianMode, caseloadScope);
+
+  const applyCaseloadScope = (scope: PatientCaseloadScope) => {
+    setCaseloadScope(scope);
+    setPage(1);
+    const next = new URLSearchParams(searchParams.toString());
+    if (physicianMode) {
+      if (scope === "all") next.set("assignedToMe", "false");
+      else next.delete("assignedToMe");
+    } else if (scope === "assigned") {
+      next.set("assignedToMe", "true");
+    } else {
+      next.delete("assignedToMe");
+    }
+    const q = next.toString();
+    router.replace(q ? `/patients?${q}` : "/patients", { scroll: false });
+  };
 
   useEffect(() => {
     const q = searchParams.get("search");
@@ -33,14 +73,21 @@ function PatientsPageContent() {
   const [showNew, setShowNew] = useState(false);
   const [page, setPage] = useState(1);
 
-  const params = new URLSearchParams({
-    page: String(page),
-    pageSize: "20",
-    ...(search && { search }),
-    ...(statusFilter && { status: statusFilter }),
-    ...(riskFilter && { riskLevel: riskFilter }),
-    ...(assignedToMe && { assignedToMe: "true" }),
-  });
+  const buildListQuery = () => {
+    const q = new URLSearchParams({
+      page: String(page),
+      pageSize: "20",
+    });
+    if (search) q.set("search", search);
+    if (statusFilter) q.set("status", statusFilter);
+    if (riskFilter) q.set("riskLevel", riskFilter);
+    if (physicianMode) {
+      q.set("assignedToMe", caseloadScope === "assigned" ? "true" : "false");
+    } else if (assignedToMe) {
+      q.set("assignedToMe", "true");
+    }
+    return q.toString();
+  };
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: [
@@ -50,9 +97,11 @@ function PatientsPageContent() {
       statusFilter,
       riskFilter,
       page,
-      assignedToMe,
+      caseloadScope,
+      physicianMode,
     ],
-    queryFn: () => request<any>(`/api/orgs/${orgId}/patients?${params}`),
+    queryFn: () =>
+      request<any>(`/api/orgs/${orgId}/patients?${buildListQuery()}`),
     enabled: !!orgId,
   });
 
@@ -61,26 +110,60 @@ function PatientsPageContent() {
 
   return (
     <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Patients</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {assignedToMe
-              ? `${pagination?.total ?? 0} patients assigned to you`
-              : `${pagination?.total ?? 0} total patients in your caseload`}
-          </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-3">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Patients</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              {assignedToMe
+                ? `${pagination?.total ?? 0} patient${(pagination?.total ?? 0) === 1 ? "" : "s"} assigned to you`
+                : `${pagination?.total ?? 0} patient${(pagination?.total ?? 0) === 1 ? "" : "s"} in organization`}
+            </p>
+          </div>
+          {physicianMode && (
+            <div
+              className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-sm shadow-sm"
+              role="group"
+              aria-label="Patient list scope"
+            >
+              <button
+                type="button"
+                onClick={() => applyCaseloadScope("assigned")}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  caseloadScope === "assigned"
+                    ? "bg-[#028090] text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                My patients
+              </button>
+              <button
+                type="button"
+                onClick={() => applyCaseloadScope("all")}
+                className={`px-4 py-2 font-medium transition-colors border-l border-slate-200 ${
+                  caseloadScope === "all"
+                    ? "bg-[#028090] text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                All patients
+              </button>
+            </div>
+          )}
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Admit Patient
-        </button>
+        {can("patient:create") && (
+          <button
+            onClick={() => setShowNew(true)}
+            className="btn-primary flex items-center gap-2 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            Admit Patient
+          </button>
+        )}
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
@@ -171,7 +254,9 @@ function PatientsPageContent() {
                   <p className="text-slate-300 text-xs mt-1">
                     {search
                       ? "Try adjusting your search"
-                      : "Start by admitting a patient"}
+                      : assignedToMe
+                        ? "Ask a supervisor to add you to a patient care team"
+                        : "Start by admitting a patient"}
                   </p>
                 </td>
               </tr>

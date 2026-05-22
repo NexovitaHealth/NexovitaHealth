@@ -102,7 +102,7 @@ export default function PhysicianPortalPage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Link
-          href="/patients?assignedToMe=true"
+          href="/patients"
           className="card p-4 hover:border-[#028090]/40 transition-colors"
         >
           <Users className="w-5 h-5 text-[#028090] mb-2" />
@@ -202,7 +202,7 @@ export default function PhysicianPortalPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold">Assigned patients</h2>
             <Link
-              href="/patients?assignedToMe=true"
+              href="/patients"
               className="text-xs text-[#028090] hover:underline"
             >
               View all

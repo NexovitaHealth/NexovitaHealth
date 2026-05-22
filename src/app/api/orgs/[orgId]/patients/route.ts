@@ -11,6 +11,7 @@ import {
 } from "@/lib/api-response";
 import { createAuditLog } from "@/lib/audit";
 import { getPagination, getSearchParams } from "@/lib/pagination";
+import { parseAssignedToMeFilter } from "@/lib/patient-list-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,10 @@ export const GET = withOrgAccess(async (req, ctx, auth) => {
     const { skip, take, page, pageSize } = getPagination(req);
     const { search, status } = getSearchParams(req);
     const riskLevel = req.nextUrl.searchParams.get("riskLevel") as "low" | null;
-    const assignedToMe =
-      req.nextUrl.searchParams.get("assignedToMe") === "true";
+    const assignedToMe = parseAssignedToMeFilter(
+      auth.user.role,
+      req.nextUrl.searchParams.get("assignedToMe"),
+    );
 
     const where = {
       orgId: auth.orgId!,
