@@ -30,6 +30,8 @@ export default function SettingsPage() {
   });
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const [emailStatusFilter, setEmailStatusFilter] = useState("");
+  const isAgencyAdmin = user?.role === "agency_admin";
 
   const [profile, setProfile] = useState({
     fullName: user?.fullName || "",
@@ -75,6 +77,24 @@ export default function SettingsPage() {
     queryKey: ["settings", "org", activeOrg?.orgId],
     queryFn: () => orgApi(activeOrg!.orgId).settings.get(),
     enabled: !!activeOrg?.orgId,
+  });
+
+  const { data: emailDeliveriesData, isLoading: emailDeliveriesLoading } =
+    useQuery({
+      queryKey: ["email-deliveries", activeOrg?.orgId, emailStatusFilter],
+      queryFn: () =>
+        orgApi(activeOrg!.orgId).emailDeliveries.list({
+          pageSize: 30,
+          status: emailStatusFilter || undefined,
+        }),
+      enabled: !!activeOrg?.orgId && isAgencyAdmin && activeTab === "security",
+    });
+
+  const retryEmailMutation = useMutation({
+    mutationFn: (deliveryId: string) =>
+      orgApi(activeOrg!.orgId).emailDeliveries.retry(deliveryId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["email-deliveries"] }),
   });
 
   const profileMutation = useMutation({
@@ -628,6 +648,90 @@ export default function SettingsPage() {
                   {passwordSaving ? "Updating…" : "Update password"}
                 </button>
               </form>
+              {isAgencyAdmin && activeOrg?.orgId && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                  <h2 className="text-base font-bold text-slate-900 mb-1">
+                    Email delivery log
+                  </h2>
+                  <p className="text-xs text-slate-400 mb-4">
+                    Outbound mail status, bounces, and manual retries
+                  </p>
+                  <div className="flex gap-2 mb-4">
+                    {[
+                      ["", "All"],
+                      ["sent", "Sent"],
+                      ["queued", "Queued"],
+                      ["failed", "Failed"],
+                      ["bounced", "Bounced"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={value || "all"}
+                        type="button"
+                        onClick={() => setEmailStatusFilter(value)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                          emailStatusFilter === value
+                            ? "bg-[#028090] text-white"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {emailDeliveriesLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin text-[#028090]" />
+                  ) : (
+                    <ul className="space-y-2 max-h-80 overflow-y-auto">
+                      {(
+                        (emailDeliveriesData as { items?: Array<{
+                          id: string;
+                          to: string;
+                          subject: string;
+                          template: string;
+                          status: string;
+                          attempts: number;
+                          lastError: string | null;
+                          createdAt: string;
+                        }> })?.items ?? []
+                      ).map((row) => (
+                        <li
+                          key={row.id}
+                          className="border border-slate-100 rounded-xl px-3 py-2 text-sm"
+                        >
+                          <div className="flex justify-between gap-2">
+                            <span className="font-medium truncate">{row.to}</span>
+                            <span className="text-xs capitalize text-slate-500">
+                              {row.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 truncate">
+                            {row.subject}
+                          </p>
+                          {row.lastError && (
+                            <p className="text-xs text-red-600 mt-1 truncate">
+                              {row.lastError}
+                            </p>
+                          )}
+                          {["queued", "failed"].includes(row.status) && (
+                            <button
+                              type="button"
+                              disabled={retryEmailMutation.isPending}
+                              onClick={() => retryEmailMutation.mutate(row.id)}
+                              className="mt-2 text-xs text-[#028090] font-medium"
+                            >
+                              Retry send
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                      {!(emailDeliveriesData as { items?: unknown[] })?.items
+                        ?.length && (
+                        <p className="text-sm text-slate-500">No deliveries yet.</p>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
               <div className="bg-white rounded-2xl border border-slate-200 p-6">
                 <h2 className="text-base font-bold text-slate-900 mb-1">
                   Active Sessions

@@ -147,6 +147,20 @@ enum ClaimStatus {
   voided
 }
 
+enum ClaimBatchStatus {
+  draft
+  submitted
+  acknowledged
+  rejected
+}
+
+enum EmailDeliveryStatus {
+  queued
+  sent
+  failed
+  bounced
+}
+
 enum IncidentStatus {
   reported
   triaged
@@ -233,6 +247,7 @@ model User {
   visitTasksCompleted VisitTask[]    @relation("VisitTasksCompleted")
   visitReviews      VisitReview[]     @relation("VisitReviewsReviewedBy")
   claimsCreated     Claim[]           @relation("ClaimsCreatedBy")
+  claimBatchesSubmitted ClaimSubmissionBatch[] @relation("ClaimBatchesSubmittedBy")
   incidentsReported Incident[]       @relation("IncidentsReported")
   incidentsAssigned Incident[]       @relation("IncidentsAssigned")
   familyCaregiverAccounts FamilyCaregiverAccount[] @relation("FamilyCaregiverUser")
@@ -321,6 +336,8 @@ model Organization {
   visitTasks            VisitTask[]
   visitReviews          VisitReview[]
   claims                Claim[]
+  claimSubmissionBatches ClaimSubmissionBatch[]
+  emailDeliveryLogs     EmailDeliveryLog[]
   incidents             Incident[]
   familyCaregiverAccounts FamilyCaregiverAccount[]
   payerAuthorisations   PayerAuthorisation[]
@@ -1134,6 +1151,7 @@ model Claim {
   denialReason        String?             @map("denial_reason")
   metadata            Json                @default("{}")
 
+  submissionBatchId   String?             @map("submission_batch_id")
   queuedAt            DateTime?           @map("queued_at")
   submittedAt         DateTime?           @map("submitted_at")
   paidAt              DateTime?           @map("paid_at")
@@ -1148,16 +1166,70 @@ model Claim {
   visitLog            VisitLog            @relation(fields: [visitLogId], references: [id])
   authorisation       PayerAuthorisation? @relation(fields: [authorisationId], references: [id])
   createdBy           User                @relation("ClaimsCreatedBy", fields: [createdById], references: [id])
+  submissionBatch     ClaimSubmissionBatch? @relation(fields: [submissionBatchId], references: [id])
 
   @@unique([orgId, claimNumber])
   @@index([orgId])
   @@index([patientId])
   @@index([authorisationId])
   @@index([createdById])
+  @@index([submissionBatchId])
   @@index([status])
   @@index([serviceDate])
   @@index([deletedAt])
   @@map("claims")
+}
+
+model ClaimSubmissionBatch {
+  id                String           @id @default(uuid())
+  orgId             String           @map("org_id")
+  batchNumber       String           @map("batch_number")
+  status            ClaimBatchStatus @default(submitted)
+  claimCount        Int              @map("claim_count")
+  totalAmount       Decimal          @map("total_amount") @db.Decimal(12, 2)
+  payerName         String?          @map("payer_name")
+  clearinghouseRef  String?          @map("clearinghouse_ref")
+  submittedById     String           @map("submitted_by_id")
+  submittedAt       DateTime         @default(now()) @map("submitted_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  org               Organization     @relation(fields: [orgId], references: [id])
+  submittedBy       User             @relation("ClaimBatchesSubmittedBy", fields: [submittedById], references: [id])
+  claims            Claim[]
+
+  @@unique([orgId, batchNumber])
+  @@index([orgId])
+  @@index([status])
+  @@index([submittedAt])
+  @@map("claim_submission_batches")
+}
+
+model EmailDeliveryLog {
+  id                String               @id @default(uuid())
+  orgId             String?              @map("org_id")
+  to                String
+  subject           String
+  template          String
+  status            EmailDeliveryStatus  @default(queued)
+  attempts          Int                  @default(0)
+  maxAttempts       Int                  @default(3) @map("max_attempts")
+  lastError         String?              @map("last_error")
+  providerMessageId String?              @map("provider_message_id")
+  metadata          Json                 @default("{}")
+  sentAt            DateTime?            @map("sent_at")
+  bouncedAt         DateTime?            @map("bounced_at")
+  nextRetryAt       DateTime?            @map("next_retry_at")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  org               Organization?        @relation(fields: [orgId], references: [id])
+
+  @@index([orgId])
+  @@index([status])
+  @@index([template])
+  @@index([nextRetryAt])
+  @@index([createdAt])
+  @@map("email_delivery_logs")
 }
 
 // DOCUMENTS & FILE ATTACHMENTS

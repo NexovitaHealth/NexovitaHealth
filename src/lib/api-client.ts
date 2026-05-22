@@ -534,10 +534,37 @@ export function orgApi(orgId: string) {
           data: {
             status?: "queued" | "submitted" | "paid" | "denied" | "voided";
             denialReason?: string;
+            paymentReference?: string;
+            paidAmount?: number;
             metadata?: Record<string, unknown>;
           },
         ) => patch<any>(`${orgBase}/billing/claims/${claimId}`, data),
       },
+      submissions: {
+        list: (params?: { page?: number; pageSize?: number }) =>
+          get<any[]>(`${orgBase}/billing/submissions${query(params)}`),
+        submit: (data?: { claimIds?: string[]; payerName?: string }) =>
+          post<{ batch: any; exportCsv: string }>(
+            `${orgBase}/billing/submissions`,
+            data,
+          ),
+        exportCsv: (batchId: string) =>
+          download(`${orgBase}/billing/submissions/${batchId}/export`, {
+            headers: { Accept: "text/csv" },
+          }),
+      },
+    },
+    emailDeliveries: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        status?: string;
+      }) =>
+        get<{ items: any[]; total: number }>(
+          `${orgBase}/email-deliveries${query(params)}`,
+        ),
+      retry: (deliveryId: string) =>
+        post<any>(`${orgBase}/email-deliveries/${deliveryId}/retry`),
     },
     messages: {
       threads: () => get<any[]>(`${orgBase}/messages/threads`),

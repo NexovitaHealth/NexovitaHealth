@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withOrgAccess } from "@/lib/middleware";
 import { createAuditLog } from "@/lib/audit";
+import { prisma } from "@/lib/prisma";
 import { error, serverError } from "@/lib/api-response";
 import {
   getOrgReport,
@@ -38,12 +39,22 @@ export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
     });
 
     if (format === "pdf") {
+      const org = await prisma.organization.findFirst({
+        where: { id: auth.orgId!, deletedAt: null },
+        select: { name: true },
+      });
+
       const pdf = createReportPdf({
-        title: `Nexovita ${reportType} report`,
-        subtitle: `Range: ${range}`,
+        title: `${reportType.replace(/_/g, " ")} report`,
+        subtitle: `Reporting period: ${range}`,
         summary: report.summary,
         columns,
         rows: report.exportRows,
+        branding: {
+          productName: "Nexovita Health",
+          orgName: org?.name,
+          tagline: "Authorized use only · Do not distribute",
+        },
       });
 
       return new NextResponse(pdf, {

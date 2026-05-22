@@ -86,6 +86,7 @@ export const POST = withOrgAccess(async (req, _ctx, auth) => {
       agencyName: invitation.org.name,
       role,
       token: invitation.token,
+      orgId: auth.orgId!,
     }).catch((err) => {
       console.error("[Invite] Failed to send invitation email", err);
     });

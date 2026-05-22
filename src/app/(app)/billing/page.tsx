@@ -171,6 +171,28 @@ export default function BillingPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["authorisations"] }),
   });
 
+  const submitBatchMutation = useMutation({
+    mutationFn: () =>
+      request<{ batch: { batchNumber: string; id: string }; exportCsv: string }>(
+        `/api/orgs/{orgId}/billing/submissions`,
+        { method: "POST", body: JSON.stringify({}) },
+      ),
+    onSuccess: (res) => {
+      const payload = res.data as { batch: { batchNumber: string }; exportCsv: string };
+      if (payload?.exportCsv) {
+        const blob = new Blob([payload.exportCsv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `837-${payload.batch.batchNumber}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      qc.invalidateQueries({ queryKey: ["billing-claims"] });
+      setClaimStatus("submitted");
+    },
+  });
+
   if (!canBill) {
     return (
       <div className="p-8 text-sm text-slate-500">
@@ -273,6 +295,21 @@ export default function BillingPage() {
 
       {tab === "claims" && (
         <>
+          {claimStatus === "queued" && claims.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-teal-100 bg-teal-50/50 px-4 py-3">
+              <p className="text-sm text-slate-700 flex-1">
+                Submit {claims.length} queued claim{claims.length === 1 ? "" : "s"} as an 837 batch to your clearinghouse.
+              </p>
+              <button
+                type="button"
+                disabled={submitBatchMutation.isPending}
+                onClick={() => submitBatchMutation.mutate()}
+                className="px-4 py-2 rounded-lg bg-[#028090] text-white text-sm font-medium disabled:opacity-50"
+              >
+                {submitBatchMutation.isPending ? "Submitting…" : "Submit batch & download 837 CSV"}
+              </button>
+            </div>
+          )}
           <div className="flex gap-2 mb-4">
             {(["queued", "submitted", "paid", "denied"] as const).map((s) => (
               <button
@@ -309,18 +346,9 @@ export default function BillingPage() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {claim.status === "queued" && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateClaimMutation.mutate({
-                            id: claim.id,
-                            status: "submitted",
-                          })
-                        }
-                        className="text-sm text-[#028090] font-medium"
-                      >
-                        Mark submitted
-                      </button>
+                      <span className="text-xs text-slate-500 self-center">
+                        Use batch submit above
+                      </span>
                     )}
                     {claim.status === "submitted" && (
                       <button

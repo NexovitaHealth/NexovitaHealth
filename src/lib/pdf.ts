@@ -49,14 +49,35 @@ function chunkLines(lines: PdfLine[]) {
   return pages.length ? pages : [[{ text: "No report data available." }]];
 }
 
+export type ReportPdfBranding = {
+  orgName?: string;
+  productName?: string;
+  tagline?: string;
+};
+
 export function createReportPdf(params: {
   title: string;
   subtitle: string;
   summary: Record<string, unknown>;
   columns: string[];
   rows: Array<Record<string, string | number | null>>;
+  branding?: ReportPdfBranding;
 }) {
+  const product = params.branding?.productName ?? "Nexovita Health";
+  const orgLine = params.branding?.orgName
+    ? `${params.branding.orgName}`
+    : "Organization report";
+
   const lines: PdfLine[] = [
+    { text: product, size: 16, bold: true },
+    { text: orgLine, size: 12, bold: true },
+    {
+      text:
+        params.branding?.tagline ??
+        "HIPAA-compliant home care management · Confidential",
+      size: 8,
+    },
+    { text: "" },
     { text: params.title, size: 18, bold: true },
     { text: params.subtitle, size: 11 },
     { text: `Generated: ${new Date().toISOString()}`, size: 9 },
@@ -98,7 +119,7 @@ export function createReportPdf(params: {
     const stream = buildLineCommands([
       ...page,
       {
-        text: `Page ${index + 1} of ${pageLines.length}`,
+        text: `${product} · ${orgLine} · Page ${index + 1} of ${pageLines.length}`,
         size: 8,
       },
     ]);
