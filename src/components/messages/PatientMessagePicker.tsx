@@ -11,20 +11,29 @@ interface Props {
   value: PatientOption | null;
   onChange: (patient: PatientOption | null) => void;
   disabled?: boolean;
+  /** Limit to patients on the user's care team (field staff). */
+  assignedOnly?: boolean;
 }
 
-export function PatientMessagePicker({ value, onChange, disabled }: Props) {
+export function PatientMessagePicker({ value, onChange, disabled, assignedOnly }: Props) {
   const { request, orgId } = useApi();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["message-patient-picker", orgId, query],
-    queryFn: () =>
-      request<PatientOption[]>(
-        `/api/orgs/{orgId}/patients?page=1&pageSize=15&search=${encodeURIComponent(query)}`,
-      ),
+    queryKey: ["message-patient-picker", orgId, query, assignedOnly],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        page: "1",
+        pageSize: "15",
+        search: query,
+      });
+      if (assignedOnly) params.set("assignedToMe", "true");
+      return request<PatientOption[]>(
+        `/api/orgs/{orgId}/patients?${params.toString()}`,
+      );
+    },
     enabled: !!orgId && open,
   });
 
@@ -77,7 +86,11 @@ export function PatientMessagePicker({ value, onChange, disabled }: Props) {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Link to patient (search by name)..."
+          placeholder={
+            assignedOnly
+              ? "Search your assigned patients..."
+              : "Link to patient (search by name)..."
+          }
           className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090] bg-white disabled:opacity-50"
         />
       </div>

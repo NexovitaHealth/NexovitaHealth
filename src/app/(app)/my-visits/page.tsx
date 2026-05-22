@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +12,7 @@ import {
   MapPin,
   CheckCircle2,
   ClipboardList,
+  MessageSquare,
 } from "lucide-react";
 
 type VisitTask = {
@@ -256,6 +258,13 @@ export default function MyVisitsPage() {
                     selected.patient.address ||
                     "Address on file"}
                 </p>
+                <Link
+                  href={`/messages?patientId=${selected.patient.id}`}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-2 py-3 min-h-[44px] rounded-xl border border-slate-200 text-sm font-medium text-[#028090] hover:bg-teal-50 transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Message care team
+                </Link>
               </div>
 
               {selected.status === "scheduled" && !selected.lockedAt && (

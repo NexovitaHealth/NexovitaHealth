@@ -767,6 +767,16 @@ export function orgApi(orgId: string) {
       threads: () => get<any[]>(`${orgBase}/messages/threads`),
       thread: (threadId: string) =>
         get<any[]>(`${orgBase}/messages/threads/${threadId}`),
+      contacts: (patientId: string) =>
+        get<{
+          patient: { id: string; fullName: string };
+          contacts: Array<{
+            id: string;
+            fullName: string;
+            careTeamRole: string;
+            userRole: string;
+          }>;
+        }>(`${orgBase}/messages/contacts?patientId=${patientId}`),
       send: (data: {
         threadId?: string;
         recipientIds?: string[];

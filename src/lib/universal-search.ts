@@ -2,6 +2,10 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canUserPerform, type Permission } from "@/lib/permissions";
 import { parseAssignedToMeFilter } from "@/lib/patient-list-scope";
+import {
+  getFieldStaffPatientIds,
+  isFieldStaffRole,
+} from "@/lib/message-scope";
 import type { UserRole } from "@/types";
 
 export const UNIVERSAL_SEARCH_MIN_LENGTH = 2;
@@ -191,6 +195,11 @@ async function searchMessages(
   q: string,
   limit: number,
 ): Promise<{ hits: UniversalSearchMessageHit[]; total: number }> {
+  const accessiblePatients =
+    canSearch(ctx, "patient:read") && isFieldStaffRole(ctx.userRole)
+      ? new Set(await getFieldStaffPatientIds(ctx.userId, ctx.orgId))
+      : null;
+
   const baseWhere: Prisma.MessageThreadWhereInput = {
     orgId: ctx.orgId,
     deletedAt: null,
@@ -211,6 +220,9 @@ async function searchMessages(
         },
       },
     ],
+    ...(accessiblePatients
+      ? { patientId: { in: Array.from(accessiblePatients) } }
+      : {}),
   };
 
   const [threads, total] = await Promise.all([
