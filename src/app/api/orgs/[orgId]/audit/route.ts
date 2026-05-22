@@ -25,6 +25,7 @@ export const GET = withOrgAccess(
       ...(search && {
         OR: [
           { resourceType: { contains: search, mode: "insensitive" as const } },
+          { resourceId: { contains: search, mode: "insensitive" as const } },
           {
             actor: {
               fullName: { contains: search, mode: "insensitive" as const },

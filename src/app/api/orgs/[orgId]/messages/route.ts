@@ -11,6 +11,7 @@ import {
   validationError,
   serverError,
 } from "@/lib/api-response";
+import { auditMessageSent } from "@/lib/audit-events";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,7 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     const message = await prisma.$transaction(async (tx) => {
       let targetThreadId = threadId;
       let recipients: string[] = [];
+      let threadCreated = false;
 
       if (targetThreadId) {
         const thread = await tx.messageThread.findFirst({
@@ -149,6 +151,7 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
         });
         targetThreadId = thread.id;
         recipients = recipientIds;
+        threadCreated = true;
       }
 
       const createdMessage = await tx.message.create({
@@ -171,19 +174,32 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
         data: { updatedAt: new Date() },
       });
 
-      return createdMessage;
+      return { createdMessage, threadCreated, targetThreadId: targetThreadId! };
+    });
+
+    await auditMessageSent({
+      orgId: auth.orgId!,
+      actorId: auth.userId,
+      messageId: message.createdMessage.id,
+      threadId: message.targetThreadId,
+      patientId:
+        patientId ?? message.createdMessage.thread?.patientId ?? undefined,
+      channel: "staff",
+      preview: content,
+      threadCreated: message.threadCreated,
+      req,
     });
 
     return created({
-      id: message.id,
-      threadId: message.threadId,
-      content: message.body,
-      body: message.body,
-      sentAt: message.createdAt,
-      createdAt: message.createdAt,
-      isRead: message.isRead,
-      sender: message.sender,
-      thread: message.thread,
+      id: message.createdMessage.id,
+      threadId: message.createdMessage.threadId,
+      content: message.createdMessage.body,
+      body: message.createdMessage.body,
+      sentAt: message.createdMessage.createdAt,
+      createdAt: message.createdMessage.createdAt,
+      isRead: message.createdMessage.isRead,
+      sender: message.createdMessage.sender,
+      thread: message.createdMessage.thread,
     });
   } catch (err) {
     if (err instanceof Error) {

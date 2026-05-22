@@ -15,6 +15,7 @@ import {
   serverError,
   validationError,
 } from "@/lib/api-response";
+import { auditMessageSent } from "@/lib/audit-events";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export const POST = withPortalAccess(async (req: NextRequest, _ctx, portal) => {
     const message = await prisma.$transaction(async (tx) => {
       let targetThreadId = threadId;
       let recipients: string[] = [];
+      let threadCreated = false;
 
       if (targetThreadId) {
         const thread = await tx.messageThread.findFirst({
@@ -81,6 +83,7 @@ export const POST = withPortalAccess(async (req: NextRequest, _ctx, portal) => {
         });
         targetThreadId = thread.id;
         recipients = participantIds.filter((id) => id !== userId);
+        threadCreated = true;
       }
 
       const createdMessage = await tx.message.create({
@@ -98,7 +101,20 @@ export const POST = withPortalAccess(async (req: NextRequest, _ctx, portal) => {
         data: { updatedAt: new Date() },
       });
 
-      return { createdMessage, targetThreadId };
+      return { createdMessage, targetThreadId, threadCreated };
+    });
+
+    await auditMessageSent({
+      orgId: portal.orgId,
+      actorId: userId,
+      messageId: message.createdMessage.id,
+      threadId: message.targetThreadId,
+      patientId: portal.patientId,
+      channel: "portal",
+      preview: content,
+      threadCreated: message.threadCreated,
+      portalSubjectType: portal.subjectType,
+      req,
     });
 
     await notifyCareTeamOfPortalMessage({

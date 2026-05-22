@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { formatAuditMetadata } from "@/lib/audit-events";
 
 const ACTION_COLORS: Record<string, string> = {
   created: "bg-emerald-100 text-emerald-700",
@@ -30,10 +31,21 @@ const ACTION_COLORS: Record<string, string> = {
 
 const ACTION_OPTIONS = Object.keys(ACTION_COLORS);
 
+const RESOURCE_TYPE_OPTIONS = [
+  { value: "", label: "All resources" },
+  { value: "claim", label: "Claims" },
+  { value: "portal_message", label: "Portal messages" },
+  { value: "message", label: "Staff messages" },
+  { value: "patient", label: "Patients" },
+  { value: "visit", label: "Visits" },
+  { value: "clinical_alert", label: "Clinical alerts" },
+];
+
 export default function AuditPage() {
   const { request, orgId } = useApi();
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("");
+  const [resourceFilter, setResourceFilter] = useState("");
   const [page, setPage] = useState(1);
   const limit = 25;
 
@@ -42,10 +54,11 @@ export default function AuditPage() {
     limit: String(limit),
   });
   if (actionFilter) params.set("action", actionFilter);
+  if (resourceFilter) params.set("resourceType", resourceFilter);
   if (search) params.set("search", search);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["audit", orgId, page, actionFilter, search],
+    queryKey: ["audit", orgId, page, actionFilter, resourceFilter, search],
     queryFn: () => request(`/api/orgs/{orgId}/audit?${params}`),
     enabled: !!orgId,
   });
@@ -105,6 +118,20 @@ export default function AuditPage() {
             {ACTION_OPTIONS.map((a) => (
               <option key={a} value={a}>
                 {a.replace(/_/g, " ")}
+              </option>
+            ))}
+          </select>
+          <select
+            value={resourceFilter}
+            onChange={(e) => {
+              setResourceFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090] bg-white"
+          >
+            {RESOURCE_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value || "all"} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </select>
@@ -199,10 +226,18 @@ export default function AuditPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-400 max-w-xs truncate">
-                        {log.metadata
-                          ? JSON.stringify(log.metadata).slice(0, 80)
-                          : "—"}
+                      <td
+                        className="px-4 py-3 text-xs text-slate-500 max-w-sm truncate"
+                        title={
+                          log.metadata
+                            ? JSON.stringify(log.metadata)
+                            : undefined
+                        }
+                      >
+                        {formatAuditMetadata(
+                          log.resourceType,
+                          log.metadata as Record<string, unknown> | undefined,
+                        )}
                       </td>
                     </tr>
                     );

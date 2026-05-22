@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
+import { buildClaimAuditEvent } from "@/lib/audit-events";
 import {
   error,
   notFound,
@@ -73,14 +74,13 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
       return error("Voided claims cannot be updated", 409);
     }
 
+    const voidRestoresAuth =
+      parsed.data.status === "voided" && !!claim.authorisationId;
+
     const updated = await prisma.$transaction(async (tx) => {
-      if (
-        parsed.data.status === "voided" &&
-        claim.authorisationId &&
-        claim.status !== "voided"
-      ) {
+      if (voidRestoresAuth) {
         await tx.payerAuthorisation.update({
-          where: { id: claim.authorisationId },
+          where: { id: claim.authorisationId! },
           data: {
             unitsUsed: { decrement: claim.units },
             status: "active",
@@ -119,17 +119,18 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
       });
     });
 
+    const auditEvent = buildClaimAuditEvent(claim, updated, parsed.data, {
+      unitsRestoredOnVoid: voidRestoresAuth ? claim.units : undefined,
+    });
+
     await createAuditLog({
       orgId: auth.orgId,
       actorId: auth.userId,
-      action: "status_changed",
+      action: auditEvent.action,
       resourceType: "claim",
       resourceId: claim.id,
       patientId: claim.patientId,
-      metadata: {
-        previousStatus: claim.status,
-        status: updated.status,
-      },
+      metadata: auditEvent.metadata,
       req,
     });
 
