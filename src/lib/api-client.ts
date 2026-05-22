@@ -251,6 +251,71 @@ export function orgApi(orgId: string) {
           reason,
         }),
     },
+    escalations: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        patientId?: string;
+        status?: string;
+        severity?: string;
+      }) => get<any[]>(`${orgBase}/escalations${query(params)}`),
+      get: (escalationId: string) =>
+        get<any>(`${orgBase}/escalations/${escalationId}`),
+      create: (data: {
+        patientId: string;
+        category: string;
+        title: string;
+        description: string;
+        severity?: "info" | "warning" | "critical";
+        assignedToId?: string;
+        sourceVitalId?: string;
+        sourceVisitId?: string;
+        incidentId?: string;
+      }) => post<any>(`${orgBase}/escalations`, data),
+      update: (
+        escalationId: string,
+        data: {
+          status?: "open" | "in_review" | "resolved" | "cancelled";
+          severity?: "info" | "warning" | "critical";
+          assignedToId?: string | null;
+          clinicalResponse?: string | null;
+          title?: string;
+          description?: string;
+        },
+      ) => patch<any>(`${orgBase}/escalations/${escalationId}`, data),
+    },
+    incidents: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        patientId?: string;
+        status?: string;
+        severity?: string;
+      }) => get<any[]>(`${orgBase}/incidents${query(params)}`),
+      get: (incidentId: string) =>
+        get<any>(`${orgBase}/incidents/${incidentId}`),
+      create: (data: {
+        patientId: string;
+        incidentType: string;
+        description: string;
+        severity?: "info" | "warning" | "critical";
+        occurredAt: string;
+        visitLogId?: string;
+        immediateAction?: string;
+        assignedToId?: string;
+        createEscalation?: boolean;
+      }) => post<any>(`${orgBase}/incidents`, data),
+      update: (
+        incidentId: string,
+        data: {
+          status?: "reported" | "triaged" | "resolved" | "closed";
+          severity?: "info" | "warning" | "critical";
+          assignedToId?: string | null;
+          immediateAction?: string | null;
+          resolution?: string | null;
+        },
+      ) => patch<any>(`${orgBase}/incidents/${incidentId}`, data),
+    },
     projects: {
       list: () => get<any[]>(`${orgBase}/projects`),
       create: (data: unknown) => post<any>(`${orgBase}/projects`, data),

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withOrgAccess } from "@/lib/middleware";
 import { paginated, serverError, forbidden } from "@/lib/api-response";
-import { OrgRole, UserRole } from "@/types";
+import type { AuditAction } from "@/types";
 import { getPagination } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +20,27 @@ export const GET = withOrgAccess(async (req, _ctx, auth) => {
     const resourceType =
       req.nextUrl.searchParams.get("resourceType") || undefined;
     const actorId = req.nextUrl.searchParams.get("actorId") || undefined;
+    const action = req.nextUrl.searchParams.get("action") || undefined;
+    const search = req.nextUrl.searchParams.get("search")?.trim() || undefined;
 
     const where = {
       orgId: auth.orgId!,
       ...(resourceType && { resourceType }),
       ...(actorId && { actorId }),
+      ...(action && { action: action as AuditAction }),
+      ...(search && {
+        OR: [
+          { resourceType: { contains: search, mode: "insensitive" as const } },
+          {
+            actor: {
+              fullName: { contains: search, mode: "insensitive" as const },
+            },
+          },
+          {
+            actor: { email: { contains: search, mode: "insensitive" as const } },
+          },
+        ],
+      }),
     };
 
     const [logs, total] = await Promise.all([

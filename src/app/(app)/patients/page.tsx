@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,10 +16,16 @@ import { riskColor, statusColor, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { NewPatientModal } from "@/components/patients/NewPatientModal";
 
-export default function PatientsPage() {
+function PatientsPageContent() {
+  const searchParams = useSearchParams();
   const { orgId } = useApi();
   const { request } = useApi();
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q) setSearch(q);
+  }, [searchParams]);
   const [statusFilter, setStatusFilter] = useState("");
   const [riskFilter, setRiskFilter] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -261,5 +268,13 @@ export default function PatientsPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function PatientsPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-500">Loading patients...</div>}>
+      <PatientsPageContent />
+    </Suspense>
   );
 }

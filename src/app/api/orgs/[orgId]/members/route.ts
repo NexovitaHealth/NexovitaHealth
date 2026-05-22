@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withOrgAccess } from "@/lib/middleware";
 import { success, serverError, forbidden } from "@/lib/api-response";
+import { createAuditLog } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -63,8 +64,27 @@ export const DELETE = withOrgAccess(async (req, _ctx, auth) => {
       return forbidden("Only owners can remove other owners");
     }
 
+    const removedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, fullName: true },
+    });
+
     await prisma.orgMembership.delete({
       where: { userId_orgId: { userId, orgId: auth.orgId! } },
+    });
+
+    await createAuditLog({
+      orgId: auth.orgId,
+      actorId: auth.userId,
+      action: "removed",
+      resourceType: "org_membership",
+      resourceId: userId,
+      metadata: {
+        removedEmail: removedUser?.email,
+        removedName: removedUser?.fullName,
+        orgRole: targetMembership.role,
+      },
+      req,
     });
 
     return success({ removed: true });

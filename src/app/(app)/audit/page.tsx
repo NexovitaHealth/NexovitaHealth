@@ -13,17 +13,22 @@ import {
 } from "lucide-react";
 
 const ACTION_COLORS: Record<string, string> = {
-  create: "bg-emerald-100 text-emerald-700",
-  update: "bg-blue-100 text-blue-700",
-  delete: "bg-red-100 text-red-700",
-  view: "bg-slate-100 text-slate-600",
+  created: "bg-emerald-100 text-emerald-700",
+  updated: "bg-blue-100 text-blue-700",
+  deleted: "bg-red-100 text-red-700",
+  viewed: "bg-slate-100 text-slate-600",
   login: "bg-purple-100 text-purple-700",
   logout: "bg-slate-100 text-slate-500",
-  approve: "bg-teal-100 text-teal-700",
-  reject: "bg-orange-100 text-orange-700",
-  export: "bg-amber-100 text-amber-700",
-  invite: "bg-pink-100 text-pink-700",
+  status_changed: "bg-teal-100 text-teal-700",
+  exported: "bg-amber-100 text-amber-700",
+  invited: "bg-pink-100 text-pink-700",
+  removed: "bg-orange-100 text-orange-700",
+  password_changed: "bg-indigo-100 text-indigo-700",
+  file_uploaded: "bg-cyan-100 text-cyan-700",
+  file_deleted: "bg-rose-100 text-rose-700",
 };
+
+const ACTION_OPTIONS = Object.keys(ACTION_COLORS);
 
 export default function AuditPage() {
   const { request, orgId } = useApi();
@@ -52,7 +57,7 @@ export default function AuditPage() {
     resourceId?: string;
     createdAt: string;
     metadata?: Record<string, string>;
-    user?: { fullName: string; email: string };
+    actor?: { fullName: string; email: string };
   }>;
   const pagination = data?.pagination || { total: 0, totalPages: 1 };
 
@@ -97,9 +102,9 @@ export default function AuditPage() {
             className="px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090] bg-white"
           >
             <option value="">All actions</option>
-            {Object.keys(ACTION_COLORS).map((a) => (
+            {ACTION_OPTIONS.map((a) => (
               <option key={a} value={a}>
-                {a.charAt(0).toUpperCase() + a.slice(1)}
+                {a.replace(/_/g, " ")}
               </option>
             ))}
           </select>
@@ -148,8 +153,10 @@ export default function AuditPage() {
                     resourceId?: string;
                     createdAt: string;
                     metadata?: Record<string, string>;
-                    user?: { fullName: string; email: string };
-                  }) => (
+                    actor?: { fullName: string; email: string };
+                  }) => {
+                    const actor = log.actor;
+                    return (
                     <tr
                       key={log.id}
                       className="hover:bg-slate-50/40 transition-colors"
@@ -177,13 +184,13 @@ export default function AuditPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {log.user ? (
+                        {actor ? (
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#028090] to-teal-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                              {getInitials(log.user.fullName)}
+                              {getInitials(actor.fullName)}
                             </div>
                             <span className="text-sm text-slate-700">
-                              {log.user.fullName}
+                              {actor.fullName}
                             </span>
                           </div>
                         ) : (
@@ -198,7 +205,8 @@ export default function AuditPage() {
                           : "—"}
                       </td>
                     </tr>
-                  ),
+                    );
+                  },
                 )}
               </tbody>
             </table>

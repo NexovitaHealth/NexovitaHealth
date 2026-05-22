@@ -33,6 +33,7 @@ import Link from "next/link";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
+  { id: "clinical", label: "Care Plan", icon: ClipboardList },
   { id: "vitals", label: "Vitals", icon: Activity },
   { id: "medications", label: "Medications", icon: Pill },
   { id: "labs", label: "Labs", icon: FlaskConical },
@@ -257,6 +258,9 @@ export default function PatientChartPage() {
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-8">
         {activeTab === "overview" && <OverviewTab patient={patient} />}
+        {activeTab === "clinical" && (
+          <ClinicalTab carePlans={(patient as { carePlans?: unknown[] }).carePlans} />
+        )}
         {activeTab === "vitals" && (
           <VitalsTab
             vitals={(vitals?.data as unknown[]) || []}
@@ -271,7 +275,12 @@ export default function PatientChartPage() {
           />
         )}
         {activeTab === "care_team" && (
-          <CareTeamTab team={(patient.careTeam ?? []) as unknown[]} />
+          <CareTeamTab
+            team={(patient.careTeam ?? []) as unknown[]}
+            patientId={patientId as string}
+            orgId={orgId!}
+            request={request}
+          />
         )}
         {activeTab === "alerts" && (
           <AlertsTab
@@ -748,12 +757,164 @@ function MedicationsTab({ medications }: { medications: any[] }) {
   );
 }
 
-function CareTeamTab({ team }: { team: any[] }) {
+function ClinicalTab({ carePlans }: { carePlans?: unknown[] }) {
+  const plans = (carePlans ?? []) as Array<{
+    id: string;
+    title: string;
+    version: number;
+    status: string;
+    reviewDate?: string;
+    signedBy?: { fullName: string };
+    physicianOrders?: Array<{
+      id: string;
+      title: string;
+      status: string;
+      orderType: string;
+    }>;
+  }>;
+
+  if (plans.length === 0) {
+    return (
+      <p className="text-sm text-slate-500">No active care plan on file.</p>
+    );
+  }
+
+  const plan = plans[0];
+
   return (
-    <div className="grid grid-cols-3 gap-4">
-      {team
-        .filter((m: any) => m.isActive)
-        .map((m: any) => (
+    <div className="space-y-6 max-w-3xl">
+      <div className="card p-5">
+        <h3 className="font-semibold text-slate-800 mb-2">{plan.title}</h3>
+        <p className="text-sm text-slate-500">
+          Version {plan.version} · {plan.status}
+          {plan.signedBy && ` · Signed by ${plan.signedBy.fullName}`}
+        </p>
+        {plan.reviewDate && (
+          <p className="text-xs text-slate-400 mt-1">
+            Review due {formatDate(plan.reviewDate)}
+          </p>
+        )}
+      </div>
+      {plan.physicianOrders && plan.physicianOrders.length > 0 && (
+        <div className="card p-5">
+          <h3 className="font-semibold text-slate-800 mb-3 text-sm">
+            Physician orders
+          </h3>
+          <ul className="space-y-2">
+            {plan.physicianOrders.map((order) => (
+              <li
+                key={order.id}
+                className="flex justify-between text-sm border-b border-slate-50 pb-2"
+              >
+                <span className="font-medium text-slate-800">{order.title}</span>
+                <span className="text-slate-500 capitalize">
+                  {order.orderType} · {order.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CareTeamTab({
+  team,
+  patientId,
+  orgId,
+  request,
+}: {
+  team: any[];
+  patientId: string;
+  orgId: string;
+  request: ReturnType<typeof useApi>["request"];
+}) {
+  const qc = useQueryClient();
+  const [userId, setUserId] = useState("");
+  const [role, setRole] = useState("primary_nurse");
+  const [error, setError] = useState("");
+
+  const { data: membersData } = useQuery({
+    queryKey: ["members", orgId],
+    queryFn: () => request(`/api/orgs/${orgId}/members`),
+    enabled: !!orgId,
+  });
+
+  const members = (membersData?.data as Array<{ id: string; fullName: string }>) || [];
+
+  const assignMutation = useMutation({
+    mutationFn: () =>
+      request(`/api/orgs/${orgId}/patients/${patientId}/care-team`, {
+        method: "POST",
+        body: JSON.stringify({ userId, role }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["patient", orgId, patientId] });
+      setUserId("");
+      setError("");
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (removeUserId: string) =>
+      request(`/api/orgs/${orgId}/patients/${patientId}/care-team`, {
+        method: "DELETE",
+        body: JSON.stringify({ userId: removeUserId }),
+      }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["patient", orgId, patientId] }),
+  });
+
+  const active = team.filter((m: any) => m.isActive);
+
+  return (
+    <div className="space-y-6">
+      <form
+        className="card p-4 flex flex-wrap gap-3 items-end"
+        onSubmit={(e) => {
+          e.preventDefault();
+          assignMutation.mutate();
+        }}
+      >
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-xs font-medium text-slate-500">Staff member</label>
+          <select
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            className="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+            required
+          >
+            <option value="">Select...</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.fullName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">Role</label>
+          <input
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            className="mt-1 border border-slate-200 rounded-lg px-3 py-2 text-sm w-40"
+            required
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={assignMutation.isPending}
+          className="px-4 py-2 rounded-lg bg-[#028090] text-white text-sm font-medium"
+        >
+          Assign
+        </button>
+      </form>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="grid grid-cols-3 gap-4">
+        {active.map((m: any) => (
           <div key={m.userId} className="card p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#028090]/10 flex items-center justify-center">
@@ -761,8 +922,8 @@ function CareTeamTab({ team }: { team: any[] }) {
                   {m.user?.fullName?.charAt(0)}
                 </span>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-800">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">
                   {m.user?.fullName}
                 </p>
                 <p className="text-xs text-slate-400 capitalize">
@@ -770,16 +931,21 @@ function CareTeamTab({ team }: { team: any[] }) {
                 </p>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mt-2 capitalize">
-              {m.user?.role?.replace(/_/g, " ")}
-            </p>
+            <button
+              type="button"
+              onClick={() => removeMutation.mutate(m.userId)}
+              className="mt-3 text-xs text-red-600 hover:underline"
+            >
+              Remove
+            </button>
           </div>
         ))}
-      {team.length === 0 && (
-        <div className="col-span-3 text-center py-8 text-slate-400 text-sm">
-          No care team members assigned
-        </div>
-      )}
+        {active.length === 0 && (
+          <div className="col-span-3 text-center py-8 text-slate-400 text-sm">
+            No care team members assigned
+          </div>
+        )}
+      </div>
     </div>
   );
 }
