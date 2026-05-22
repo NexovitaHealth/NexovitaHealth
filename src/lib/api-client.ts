@@ -415,9 +415,24 @@ export function orgApi(orgId: string) {
         endDate?: string;
       }) => get<any[]>(`${orgBase}/visits${query(params)}`),
       get: (visitId: string) => get<any>(`${orgBase}/visits/${visitId}`),
-      create: (data: unknown) => post<any>(`${orgBase}/visits`, data),
-      update: (visitId: string, data: unknown) =>
-        patch<any>(`${orgBase}/visits/${visitId}`, data),
+      create: (data: {
+        patientId: string;
+        staffId: string;
+        visitType: string;
+        scheduledAt: string;
+        notes?: string;
+        serviceAddress?: string;
+      }) => post<any>(`${orgBase}/visits`, data),
+      update: (
+        visitId: string,
+        data: {
+          visitType?: string;
+          scheduledAt?: string;
+          status?: "scheduled" | "in_progress" | "completed" | "missed" | "cancelled";
+          notes?: string;
+          serviceAddress?: string;
+        },
+      ) => patch<any>(`${orgBase}/visits/${visitId}`, data),
       checkIn: (
         visitId: string,
         data: {

@@ -39,10 +39,14 @@ export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
 
     const normalized = visits.map((v: (typeof visits)[0]) => ({
       id: v.id,
-      scheduledDate: v.scheduledAt,
+      patientId: v.patientId,
+      staffId: v.loggedById,
+      scheduledAt: v.scheduledAt.toISOString(),
+      scheduledDate: v.scheduledAt.toISOString(),
       visitType: v.visitType,
       status: v.status,
       notes: v.notes,
+      serviceAddress: v.serviceAddress,
       checkinAt: v.checkinAt,
       checkoutAt: v.checkoutAt,
       evvVerified: v.evvVerified,
