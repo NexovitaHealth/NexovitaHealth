@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
+    serverComponentsExternalPackages: [
+      '@prisma/client',
+      'bcryptjs',
+      'ssh2',
+      'ssh2-sftp-client',
+    ],
   },
   images: {
     remotePatterns: [

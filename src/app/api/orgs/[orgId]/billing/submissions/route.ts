@@ -17,6 +17,7 @@ export const dynamic = "force-dynamic";
 const submitSchema = z.object({
   claimIds: z.array(z.string().uuid()).optional(),
   payerName: z.string().max(200).optional(),
+  transport: z.enum(["file", "sftp", "http"]).optional(),
 });
 
 export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
@@ -57,11 +58,8 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     const parsed = submitSchema.safeParse(body);
     if (!parsed.success) return validationError(parsed.error);
 
-    const { batch, exportCsv } = await submitClaimBatch(
-      auth.orgId!,
-      auth.userId,
-      parsed.data,
-    );
+    const { batch, exportCsv, transportError, transportResult } =
+      await submitClaimBatch(auth.orgId!, auth.userId, parsed.data);
 
     await createAuditLog({
       orgId: auth.orgId,
@@ -73,6 +71,9 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
         batchNumber: batch.batchNumber,
         claimCount: batch.claimCount,
         clearinghouseRef: batch.clearinghouseRef,
+        transportMode: batch.transportMode,
+        transportStatus: batch.transportStatus,
+        transportError,
       },
       req,
     });
@@ -80,6 +81,8 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     return success({
       batch,
       exportCsv,
+      transportError,
+      transportResult,
     });
   } catch (err) {
     if (err instanceof Error) {

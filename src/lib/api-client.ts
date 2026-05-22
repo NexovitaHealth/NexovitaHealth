@@ -606,13 +606,43 @@ export function orgApi(orgId: string) {
           },
         ) => patch<any>(`${orgBase}/billing/claims/${claimId}`, data),
       },
+      clearinghouse: {
+        get: () =>
+          get<{ clearinghouse: Record<string, unknown> }>(
+            `${orgBase}/billing/clearinghouse`,
+          ),
+        update: (clearinghouse: Record<string, unknown>) =>
+          patch<{ clearinghouse: Record<string, unknown> }>(
+            `${orgBase}/billing/clearinghouse`,
+            { clearinghouse },
+          ),
+        test: (transport: "sftp" | "http") =>
+          post<{ ok: boolean; message: string }>(
+            `${orgBase}/billing/clearinghouse/test`,
+            { transport },
+          ),
+      },
       submissions: {
         list: (params?: { page?: number; pageSize?: number }) =>
           get<any[]>(`${orgBase}/billing/submissions${query(params)}`),
-        submit: (data?: { claimIds?: string[]; payerName?: string }) =>
-          post<{ batch: any; exportCsv: string }>(
-            `${orgBase}/billing/submissions`,
-            data,
+        submit: (data?: {
+          claimIds?: string[];
+          payerName?: string;
+          transport?: "file" | "sftp" | "http";
+        }) =>
+          post<{
+            batch: unknown;
+            exportCsv: string;
+            transportError?: string;
+            transportResult?: { message: string; externalRef?: string };
+          }>(`${orgBase}/billing/submissions`, data),
+        transmit: (
+          batchId: string,
+          data?: { transport?: "file" | "sftp" | "http" },
+        ) =>
+          post<{ batch: unknown; exportCsv: string }>(
+            `${orgBase}/billing/submissions/${batchId}/transmit`,
+            data ?? {},
           ),
         exportCsv: (batchId: string) =>
           download(`${orgBase}/billing/submissions/${batchId}/export`, {

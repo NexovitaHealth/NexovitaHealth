@@ -154,6 +154,13 @@ enum ClaimBatchStatus {
   rejected
 }
 
+enum ClaimBatchTransportStatus {
+  file_only
+  pending
+  transmitted
+  failed
+}
+
 enum EmailDeliveryStatus {
   queued
   sent
@@ -1188,10 +1195,14 @@ model ClaimSubmissionBatch {
   claimCount        Int              @map("claim_count")
   totalAmount       Decimal          @map("total_amount") @db.Decimal(12, 2)
   payerName         String?          @map("payer_name")
-  clearinghouseRef  String?          @map("clearinghouse_ref")
-  submittedById     String           @map("submitted_by_id")
-  submittedAt       DateTime         @default(now()) @map("submitted_at")
-  createdAt         DateTime         @default(now()) @map("created_at")
+  clearinghouseRef  String?                    @map("clearinghouse_ref")
+  transportMode     String?                    @map("transport_mode")
+  transportStatus   ClaimBatchTransportStatus? @default(file_only) @map("transport_status")
+  transportMessage  String?                    @map("transport_message")
+  transmittedAt     DateTime?                  @map("transmitted_at")
+  submittedById     String                     @map("submitted_by_id")
+  submittedAt       DateTime                   @default(now()) @map("submitted_at")
+  createdAt         DateTime                   @default(now()) @map("created_at")
 
   org               Organization     @relation(fields: [orgId], references: [id])
   submittedBy       User             @relation("ClaimBatchesSubmittedBy", fields: [submittedById], references: [id])

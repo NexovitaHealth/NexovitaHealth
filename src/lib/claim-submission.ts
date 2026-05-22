@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertBillingUser, claimInclude } from "@/lib/billing";
+import type { ClearinghouseTransportMode } from "@/lib/clearinghouse/types";
 
 export function makeBatchNumber(orgSlug: string) {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -82,7 +83,11 @@ export function build837ProfessionalCsv(
 export async function submitClaimBatch(
   orgId: string,
   submittedById: string,
-  options: { claimIds?: string[]; payerName?: string },
+  options: {
+    claimIds?: string[];
+    payerName?: string;
+    transport?: ClearinghouseTransportMode;
+  },
 ) {
   const org = await prisma.organization.findFirst({
     where: { id: orgId, deletedAt: null },
@@ -121,9 +126,16 @@ export async function submitClaimBatch(
     0,
   );
   const batchNumber = makeBatchNumber(org.slug);
-  const clearinghouseRef = `CH-${batchNumber}`;
+  const {
+    getOrgClearinghouseConfig,
+    resolveTransportMode,
+    transmitToClearinghouse,
+    applyBatchTransportResult,
+  } = await import("@/lib/clearinghouse");
+  const chConfig = await getOrgClearinghouseConfig(orgId);
+  const transportMode = resolveTransportMode(chConfig, options.transport);
 
-  const batch = await prisma.$transaction(async (tx) => {
+  let batch = await prisma.$transaction(async (tx) => {
     const created = await tx.claimSubmissionBatch.create({
       data: {
         orgId,
@@ -131,7 +143,9 @@ export async function submitClaimBatch(
         claimCount: claims.length,
         totalAmount,
         payerName: options.payerName ?? claims[0]?.payerName,
-        clearinghouseRef,
+        clearinghouseRef: `CH-${batchNumber}`,
+        transportMode,
+        transportStatus: transportMode === "file" ? "file_only" : "pending",
         submittedById,
         status: "submitted",
       },
@@ -157,8 +171,42 @@ export async function submitClaimBatch(
   });
 
   const exportCsv = build837ProfessionalCsv(batchNumber, org, batch.claims);
+  const filename = `837-${batchNumber}.csv`;
 
-  return { batch, exportCsv };
+  let transportError: string | undefined;
+  let transportResult;
+  try {
+    transportResult = await transmitToClearinghouse(chConfig, transportMode, {
+      orgId,
+      batchId: batch.id,
+      batchNumber,
+      claimCount: batch.claimCount,
+      totalAmount: Number(batch.totalAmount),
+      payerName: batch.payerName,
+      csvContent: exportCsv,
+      filename,
+    });
+    await applyBatchTransportResult(batch.id, transportMode, transportResult);
+  } catch (err) {
+    transportError =
+      err instanceof Error ? err.message : "Clearinghouse transmission failed";
+    await applyBatchTransportResult(
+      batch.id,
+      transportMode,
+      { success: false, message: transportError },
+      transportError,
+    );
+  }
+
+  batch = await prisma.claimSubmissionBatch.findUniqueOrThrow({
+    where: { id: batch.id },
+    include: {
+      submittedBy: { select: { id: true, fullName: true } },
+      claims: { include: claimInclude },
+    },
+  });
+
+  return { batch, exportCsv, transportError, transportResult };
 }
 
 export async function getSubmissionBatchExport(orgId: string, batchId: string) {
