@@ -205,6 +205,14 @@ export const PERMISSIONS = {
     "physician",
     "physician_independent",
   ],
+  "compliance:read": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+    "school_nurse",
+    "billing_manager",
+  ],
 
   "org:invite_member": ["agency_admin", "owner", "admin"],
   "org:remove_member": ["agency_admin", "owner", "admin"],

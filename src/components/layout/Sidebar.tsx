@@ -27,6 +27,7 @@ import {
   BarChart3,
   MessageSquare,
   Shield,
+  ShieldCheck,
   Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ const NAV_ICONS: Record<string, React.ElementType> = {
   "/tasks": ClipboardList,
   "/schedule": Calendar,
   "/my-visits": CalendarCheck,
+  "/compliance": ShieldCheck,
   "/supervisor": Shield,
   "/visit-review": ClipboardCheck,
   "/care-plans": ClipboardList,

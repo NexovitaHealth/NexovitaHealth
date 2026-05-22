@@ -18,6 +18,7 @@ export const PAGE_PERMISSIONS: Record<string, Permission> = {
   "/physician": "physician:portal",
   "/care-plans": "careplan:read",
   "/physician-orders": "physician_order:manage",
+  "/compliance": "compliance:read",
   "/alerts": "alert:read",
   "/escalations": "escalation:read",
   "/family-caregivers": "caregiver:manage",

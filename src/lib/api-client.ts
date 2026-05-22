@@ -451,6 +451,28 @@ export function orgApi(orgId: string) {
           missedVisitsToday: number;
         }>(`${orgBase}/dashboard`),
     },
+    compliance: {
+      dashboard: () =>
+        get<{
+          counts: {
+            openComplianceItems: number;
+            openClinicalAlerts: number;
+            openCriticalAlerts: number;
+            openWarningAlerts: number;
+            openEscalations: number;
+            openIncidents: number;
+            pendingVisitReviews: number;
+            missedVisitsToday: number;
+            expiringAuthorisations: number;
+            highRiskActivePatients: number;
+          };
+          alertSeverityCounts: { critical: number; warning: number; info: number };
+          expiringAuthorisations: unknown[];
+          recentClinicalAlerts: unknown[];
+          recentEscalations: unknown[];
+          recentIncidents: unknown[];
+        }>(`${orgBase}/compliance/dashboard`),
+    },
     schedule: {
       list: (params?: { startDate?: string; endDate?: string }) =>
         get<any[]>(`${orgBase}/schedule${query(params)}`),

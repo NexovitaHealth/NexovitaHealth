@@ -15,6 +15,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { href: "/tasks", label: "Tasks", permission: "task:read" },
   { href: "/schedule", label: "Schedule", permission: "visit:read" },
   { href: "/my-visits", label: "My Visits", permission: "visit:checkin" },
+  { href: "/compliance", label: "Compliance", permission: "compliance:read" },
   { href: "/supervisor", label: "Supervisor Panel", permission: "clinical:supervise" },
   { href: "/visit-review", label: "Visit Review", permission: "review:decide" },
   {
