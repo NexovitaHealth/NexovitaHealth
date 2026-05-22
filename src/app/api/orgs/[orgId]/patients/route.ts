@@ -19,11 +19,18 @@ export const GET = withOrgAccess(async (req, ctx, auth) => {
     const { skip, take, page, pageSize } = getPagination(req);
     const { search, status } = getSearchParams(req);
     const riskLevel = req.nextUrl.searchParams.get("riskLevel") as "low" | null;
+    const assignedToMe =
+      req.nextUrl.searchParams.get("assignedToMe") === "true";
 
     const where = {
       orgId: auth.orgId!,
       deletedAt: null,
       isDraft: false,
+      ...(assignedToMe && {
+        careTeam: {
+          some: { userId: auth.userId, isActive: true },
+        },
+      }),
       ...(search && {
         OR: [
           { fullName: { contains: search, mode: "insensitive" as const } },

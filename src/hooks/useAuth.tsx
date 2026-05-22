@@ -7,6 +7,7 @@ import React, {
   useCallback,
 } from "react";
 import { useRouter } from "next/navigation";
+import { getStaffHomePath } from "@/lib/physician-nav";
 
 export interface User {
   id: string;
@@ -82,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         (m: User["orgMemberships"][0]) => m.isPrimary,
       ) || data.data.user.orgMemberships[0];
     if (primary) setActiveOrgId(primary.orgId);
-    router.push(redirectTo || "/dashboard");
+    router.push(redirectTo || getStaffHomePath(data.data.user.role));
   };
 
   const logout = async () => {

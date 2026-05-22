@@ -413,6 +413,23 @@ export function orgApi(orgId: string) {
       resolve: (alertId: string) =>
         patch<any>(`${orgBase}/alerts/${alertId}`, { action: "resolve" }),
     },
+    physicianPortal: {
+      summary: () =>
+        get<{
+          counts: {
+            assignedPatientCount: number;
+            draftOrders: number;
+            carePlansToSign: number;
+            openEscalations: number;
+            criticalAlerts: number;
+            pendingVisitReviews: number;
+          };
+          assignedPatients: unknown[];
+          recentDraftOrders: unknown[];
+          recentEscalations: unknown[];
+          carePlansPendingSign: unknown[];
+        }>(`${orgBase}/physician-portal`),
+    },
     dashboard: {
       summary: () =>
         get<{

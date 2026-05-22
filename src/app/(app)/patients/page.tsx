@@ -22,6 +22,8 @@ function PatientsPageContent() {
   const { request } = useApi();
   const [search, setSearch] = useState("");
 
+  const assignedToMe = searchParams.get("assignedToMe") === "true";
+
   useEffect(() => {
     const q = searchParams.get("search");
     if (q) setSearch(q);
@@ -37,10 +39,19 @@ function PatientsPageContent() {
     ...(search && { search }),
     ...(statusFilter && { status: statusFilter }),
     ...(riskFilter && { riskLevel: riskFilter }),
+    ...(assignedToMe && { assignedToMe: "true" }),
   });
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["patients", orgId, search, statusFilter, riskFilter, page],
+    queryKey: [
+      "patients",
+      orgId,
+      search,
+      statusFilter,
+      riskFilter,
+      page,
+      assignedToMe,
+    ],
     queryFn: () => request<any>(`/api/orgs/${orgId}/patients?${params}`),
     enabled: !!orgId,
   });
@@ -54,7 +65,9 @@ function PatientsPageContent() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Patients</h1>
           <p className="text-sm text-slate-500 mt-1">
-            {pagination?.total ?? 0} total patients in your caseload
+            {assignedToMe
+              ? `${pagination?.total ?? 0} patients assigned to you`
+              : `${pagination?.total ?? 0} total patients in your caseload`}
           </p>
         </div>
         <button

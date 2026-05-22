@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
+import { isPhysicianPortalRole } from "@/lib/physician-nav";
 import { formatDateTime } from "@/lib/utils";
 import { FileSignature, Loader2 } from "lucide-react";
 
@@ -30,14 +31,19 @@ export default function PhysicianOrdersPage() {
   const { request, orgId } = useApi();
   const { user } = useAuth();
   const [statusFilter, setStatusFilter] = useState("");
+  const scopeToMe = isPhysicianPortalRole(user?.role);
 
   const canView = CLINICAL.includes(user?.role || "");
 
   const { data, isLoading } = useQuery({
-    queryKey: ["physician-orders", orgId, statusFilter],
+    queryKey: ["physician-orders", orgId, statusFilter, scopeToMe, user?.id],
     queryFn: () => {
-      const q = statusFilter ? `?status=${statusFilter}&pageSize=100` : "?pageSize=100";
-      return request<PhysicianOrder[]>(`/api/orgs/{orgId}/physician-orders${q}`);
+      const params = new URLSearchParams({ pageSize: "100" });
+      if (statusFilter) params.set("status", statusFilter);
+      if (scopeToMe && user?.id) params.set("physicianId", user.id);
+      return request<PhysicianOrder[]>(
+        `/api/orgs/{orgId}/physician-orders?${params}`,
+      );
     },
     enabled: !!orgId && canView,
   });

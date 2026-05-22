@@ -1,5 +1,8 @@
 import type { Permission } from "@/lib/permissions";
 import { canUserPerform } from "@/lib/permissions";
+import { getStaffHomePath } from "@/lib/physician-nav";
+
+export { getStaffHomePath } from "@/lib/physician-nav";
 
 /**
  * Route classification for Next.js middleware (staff app vs public vs portal).
@@ -12,6 +15,7 @@ export const PAGE_PERMISSIONS: Record<string, Permission> = {
   "/audit": "audit:read",
   "/reports": "report:view",
   "/visit-review": "review:decide",
+  "/physician": "physician:portal",
   "/physician-orders": "physician_order:manage",
   "/alerts": "alert:read",
   "/escalations": "escalation:read",

@@ -4,9 +4,11 @@ import { getSessionPayloadFromRequest } from "@/lib/session-edge";
 import {
   buildLoginRedirectUrl,
   canAccessPage,
+  getStaffHomePath,
   isAuthPage,
   requiresStaffSession,
 } from "@/lib/route-guard";
+import { isPhysicianPortalRole } from "@/lib/physician-nav";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -14,7 +16,9 @@ export async function middleware(req: NextRequest) {
   if (!requiresStaffSession(pathname)) {
     const session = await getSessionPayloadFromRequest(req);
     if (session && isAuthPage(pathname)) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+      return NextResponse.redirect(
+        new URL(getStaffHomePath(session.role), req.url),
+      );
     }
     return NextResponse.next();
   }
@@ -25,7 +29,17 @@ export async function middleware(req: NextRequest) {
   }
 
   if (session.role && !canAccessPage(session.role, pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(
+      new URL(getStaffHomePath(session.role), req.url),
+    );
+  }
+
+  if (
+    session.role &&
+    isPhysicianPortalRole(session.role) &&
+    (pathname === "/dashboard" || pathname.startsWith("/dashboard/"))
+  ) {
+    return NextResponse.redirect(new URL("/physician", req.url));
   }
 
   return NextResponse.next();

@@ -27,13 +27,19 @@ import {
   BarChart3,
   MessageSquare,
   Shield,
+  Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { NAV_ITEMS } from "@/components/layout/nav-permissions";
+import {
+  isPhysicianPortalRole,
+  PHYSICIAN_NAV_HREFS,
+} from "@/lib/physician-nav";
 
 const NAV_ICONS: Record<string, React.ElementType> = {
+  "/physician": Stethoscope,
   "/dashboard": LayoutDashboard,
   "/patients": Users,
   "/projects": FolderKanban,
@@ -64,9 +70,17 @@ export function Sidebar() {
   const pathname = usePathname();
   const [orgDropdown, setOrgDropdown] = useState(false);
 
-  const filteredNav = NAV_ITEMS.filter(
-    (item) => !item.permission || can(item.permission),
-  );
+  const physicianMode = isPhysicianPortalRole(user?.role);
+
+  const filteredNav = NAV_ITEMS.filter((item) => {
+    if (item.permission && !can(item.permission)) return false;
+    if (physicianMode) {
+      if (item.href === "/dashboard") return false;
+      return PHYSICIAN_NAV_HREFS.has(item.href);
+    }
+    if (item.href === "/physician") return false;
+    return true;
+  });
 
   return (
     <aside className="w-64 bg-white border-r border-slate-100 flex flex-col h-screen fixed left-0 top-0 z-30">

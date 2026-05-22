@@ -86,6 +86,7 @@ export const PERMISSIONS = {
     "physician",
     "physician_independent",
   ],
+  "physician:portal": ["physician", "physician_independent"],
 
   "lab:read": [
     "agency_admin",

@@ -8,6 +8,7 @@ export type NavItemConfig = {
 
 /** Sidebar items gated by central permission matrix. */
 export const NAV_ITEMS: NavItemConfig[] = [
+  { href: "/physician", label: "Physician Portal", permission: "physician:portal" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/patients", label: "Patients", permission: "patient:read" },
   { href: "/projects", label: "Projects", permission: "task:read" },
