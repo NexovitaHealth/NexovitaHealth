@@ -24,7 +24,7 @@ export const EVV_EXPORT_HEADERS = [
   "submitted_at",
 ] as const;
 
-export type EvvExportRow = {
+export type EvvExportVisitRow = {
   visit: Pick<
     VisitLog,
     | "id"
@@ -47,8 +47,28 @@ export type EvvExportRow = {
     | "evvFlagReason"
     | "submittedAt"
   >;
-  patient: { fullName: string };
+  patient: {
+    id: string;
+    fullName: string;
+    insuranceNumber?: string | null;
+    medicaidMemberId?: string | null;
+  };
   staff: { fullName: string };
+};
+
+/** @deprecated Use EvvExportVisitRow */
+export type EvvExportRow = EvvExportVisitRow;
+
+export type EvvExportContext = {
+  orgId: string;
+  orgNpi?: string | null;
+  orgRegion?: string | null;
+};
+
+export type EvvExportFilters = {
+  startDate?: string | null;
+  endDate?: string | null;
+  verifiedOnly?: boolean;
 };
 
 function csvEscape(value: string | number | boolean | null | undefined) {
@@ -64,7 +84,7 @@ function iso(d: Date | null | undefined) {
   return d ? d.toISOString() : "";
 }
 
-export function evvRowToCsvLine(row: EvvExportRow) {
+export function evvRowToCsvLine(row: EvvExportVisitRow) {
   const { visit, patient, staff } = row;
   return [
     visit.id,
@@ -93,8 +113,50 @@ export function evvRowToCsvLine(row: EvvExportRow) {
     .join(",");
 }
 
-export function buildEvvExportCsv(rows: EvvExportRow[]) {
+export function buildEvvExportCsv(rows: EvvExportVisitRow[]) {
   const header = EVV_EXPORT_HEADERS.join(",");
   const body = rows.map(evvRowToCsvLine).join("\n");
   return `${header}\n${body}\n`;
+}
+
+export async function fetchEvvExportRows(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  prisma: { visitLog: { findMany: (args: object) => Promise<any[]> } },
+  orgId: string,
+  filters: EvvExportFilters,
+): Promise<EvvExportVisitRow[]> {
+  const scheduledAt: { gte?: Date; lte?: Date } = {};
+  if (filters.startDate) scheduledAt.gte = new Date(filters.startDate);
+  if (filters.endDate) scheduledAt.lte = new Date(`${filters.endDate}T23:59:59Z`);
+
+  const verifiedOnly = filters.verifiedOnly !== false;
+
+  const visits = await prisma.visitLog.findMany({
+    where: {
+      orgId,
+      deletedAt: null,
+      status: { in: ["completed", "in_progress"] },
+      checkinAt: { not: null },
+      ...(verifiedOnly && { evvVerified: true }),
+      ...(Object.keys(scheduledAt).length ? { scheduledAt } : {}),
+    },
+    orderBy: { scheduledAt: "asc" },
+    take: 5000,
+    include: {
+      patient: {
+        select: { id: true, fullName: true, insuranceNumber: true },
+      },
+      loggedBy: { select: { fullName: true } },
+    },
+  });
+
+  return visits.map((v) => ({
+    visit: v,
+    patient: {
+      id: v.patient.id,
+      fullName: v.patient.fullName,
+      insuranceNumber: v.patient.insuranceNumber,
+    },
+    staff: v.loggedBy,
+  }));
 }

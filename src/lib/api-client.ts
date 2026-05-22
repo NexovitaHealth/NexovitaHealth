@@ -477,6 +477,20 @@ export function orgApi(orgId: string) {
       list: (params?: { startDate?: string; endDate?: string }) =>
         get<any[]>(`${orgBase}/schedule${query(params)}`),
     },
+    evv: {
+      settings: {
+        get: () =>
+          get<{
+            medicaidEvv: Record<string, unknown>;
+            orgNpi?: string | null;
+          }>(`${orgBase}/evv/settings`),
+        update: (medicaidEvv: Record<string, unknown>) =>
+          patch<{ medicaidEvv: Record<string, unknown> }>(
+            `${orgBase}/evv/settings`,
+            { medicaidEvv },
+          ),
+      },
+    },
     visits: {
       list: (params?: {
         page?: number;

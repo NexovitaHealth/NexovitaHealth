@@ -59,6 +59,15 @@ export default function SettingsPage() {
     supervisingNurse: "",
   });
 
+  const [medicaidEvv, setMedicaidEvv] = useState({
+    medicaidProviderId: "",
+    officeId: "",
+    payerId: "",
+    stateCode: "",
+    defaultServiceCode: "S5135",
+    timezone: "America/Chicago",
+  });
+
   const [notifications, setNotifications] = useState({
     criticalAlerts: true,
     newMessages: true,
@@ -77,6 +86,12 @@ export default function SettingsPage() {
     queryKey: ["settings", "org", activeOrg?.orgId],
     queryFn: () => orgApi(activeOrg!.orgId).settings.get(),
     enabled: !!activeOrg?.orgId,
+  });
+
+  const { data: evvSettingsData } = useQuery({
+    queryKey: ["evv-settings", activeOrg?.orgId],
+    queryFn: () => orgApi(activeOrg!.orgId).evv.settings.get(),
+    enabled: !!activeOrg?.orgId && isAgencyAdmin,
   });
 
   const { data: emailDeliveriesData, isLoading: emailDeliveriesLoading } =
@@ -109,6 +124,12 @@ export default function SettingsPage() {
       await queryClient.invalidateQueries({ queryKey: ["settings", "profile"] });
       await refresh();
     },
+  });
+
+  const evvMutation = useMutation({
+    mutationFn: () => orgApi(activeOrg!.orgId).evv.settings.update(medicaidEvv),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ["evv-settings"] }),
   });
 
   const orgMutation = useMutation({
@@ -179,6 +200,22 @@ export default function SettingsPage() {
     setNotifications((current) => ({ ...current, ...prefs }));
   }, [orgSettingsData]);
 
+  useEffect(() => {
+    const loaded = evvSettingsData?.medicaidEvv as
+      | Record<string, string>
+      | undefined;
+    if (!loaded) return;
+    setMedicaidEvv((current) => ({
+      ...current,
+      medicaidProviderId: loaded.medicaidProviderId ?? "",
+      officeId: loaded.officeId ?? "",
+      payerId: loaded.payerId ?? "",
+      stateCode: loaded.stateCode ?? "",
+      defaultServiceCode: loaded.defaultServiceCode ?? "S5135",
+      timezone: loaded.timezone ?? "America/Chicago",
+    }));
+  }, [evvSettingsData]);
+
   const handleSave = async () => {
     setIsSaving(true);
     setSaveError(null);
@@ -188,6 +225,9 @@ export default function SettingsPage() {
       }
       if (activeTab === "organization" || activeTab === "notifications") {
         await orgMutation.mutateAsync();
+        if (activeTab === "organization" && isAgencyAdmin) {
+          await evvMutation.mutateAsync();
+        }
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -450,6 +490,114 @@ export default function SettingsPage() {
                       />
                     </div>
                   </div>
+                  {isAgencyAdmin && (
+                    <div className="border border-teal-100 rounded-xl p-4 bg-teal-50/40 space-y-3">
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Medicaid EVV export
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Used for Sandata-aligned CSV files from Schedule → EVV
+                        export. Member ID defaults to patient insurance number.
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Medicaid provider ID
+                          </label>
+                          <input
+                            value={medicaidEvv.medicaidProviderId}
+                            onChange={(e) =>
+                              setMedicaidEvv((c) => ({
+                                ...c,
+                                medicaidProviderId: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                            placeholder="State Medicaid provider ID"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Office ID
+                          </label>
+                          <input
+                            value={medicaidEvv.officeId}
+                            onChange={(e) =>
+                              setMedicaidEvv((c) => ({
+                                ...c,
+                                officeId: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Payer ID
+                          </label>
+                          <input
+                            value={medicaidEvv.payerId}
+                            onChange={(e) =>
+                              setMedicaidEvv((c) => ({
+                                ...c,
+                                payerId: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            State code
+                          </label>
+                          <input
+                            value={medicaidEvv.stateCode}
+                            onChange={(e) =>
+                              setMedicaidEvv((c) => ({
+                                ...c,
+                                stateCode: e.target.value.toUpperCase().slice(0, 2),
+                              }))
+                            }
+                            maxLength={2}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                            placeholder="TX"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Default service code
+                          </label>
+                          <input
+                            value={medicaidEvv.defaultServiceCode}
+                            onChange={(e) =>
+                              setMedicaidEvv((c) => ({
+                                ...c,
+                                defaultServiceCode: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                            placeholder="S5135"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Timezone
+                          </label>
+                          <input
+                            value={medicaidEvv.timezone}
+                            onChange={(e) =>
+                              setMedicaidEvv((c) => ({
+                                ...c,
+                                timezone: e.target.value,
+                              }))
+                            }
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm"
+                            placeholder="America/Chicago"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
                     <p className="text-xs font-semibold text-slate-600 mb-1">
                       Organization ID
