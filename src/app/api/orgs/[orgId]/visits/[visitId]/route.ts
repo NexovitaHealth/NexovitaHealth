@@ -31,17 +31,20 @@ const updateVisitSchema = z.object({
   serviceLongitude: z.number().min(-180).max(180).nullable().optional(),
 });
 
-export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
-  try {
-    const visit = await getOrgVisitOrThrow(auth.orgId!, ctx.params.visitId);
-    return success(visit);
-  } catch (err) {
-    if (err instanceof Error && err.message === "VISIT_NOT_FOUND") {
-      return notFound("Visit");
+export const GET = withOrgAccess(
+  async (_req: NextRequest, ctx, auth) => {
+    try {
+      const visit = await getOrgVisitOrThrow(auth.orgId!, ctx.params.visitId);
+      return success(visit);
+    } catch (err) {
+      if (err instanceof Error && err.message === "VISIT_NOT_FOUND") {
+        return notFound("Visit");
+      }
+      return serverError(err);
     }
-    return serverError(err);
-  }
-});
+  },
+  { permission: "visit:read" },
+);
 
 export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {

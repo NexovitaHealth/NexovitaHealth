@@ -35,6 +35,10 @@ import { ClinicalTabPanel } from "@/components/clinical/ClinicalTabPanel";
 import { DocumentsTab } from "@/components/patients/DocumentsTab";
 import { PatientEditModal } from "@/components/patients/PatientEditModal";
 import { PatientStatusModal } from "@/components/patients/PatientStatusModal";
+import {
+  MedicationModal,
+  type MedicationRecord,
+} from "@/components/patients/MedicationModal";
 import { usePermissions } from "@/hooks/usePermissions";
 import { admissionSourceLabel } from "@/lib/patients";
 
@@ -103,6 +107,7 @@ export default function PatientChartPage() {
   const [portalError, setPortalError] = useState("");
 
   const canUpdatePatient = can("patient:update");
+  const canManageMedications = can("medication:manage");
 
   const canIssuePortal =
     ["owner", "admin"].includes(activeOrg?.role || "") ||
@@ -322,9 +327,12 @@ export default function PatientChartPage() {
             request={request}
           />
         )}
-        {activeTab === "medications" && (
+        {activeTab === "medications" && orgId && (
           <MedicationsTab
-            medications={(patient.medications ?? []) as unknown[]}
+            medications={(patient.medications ?? []) as MedicationRecord[]}
+            patientId={patientId as string}
+            orgId={orgId}
+            canManage={canManageMedications}
           />
         )}
         {activeTab === "documents" && orgId && (
@@ -857,14 +865,43 @@ function VitalsTab({
   );
 }
 
-function MedicationsTab({ medications }: { medications: any[] }) {
+function MedicationsTab({
+  medications,
+  patientId,
+  orgId,
+  canManage,
+}: {
+  medications: MedicationRecord[];
+  patientId: string;
+  orgId: string;
+  canManage: boolean;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<MedicationRecord | undefined>();
+
+  const openAdd = () => {
+    setEditing(undefined);
+    setShowModal(true);
+  };
+
+  const openEdit = (med: MedicationRecord) => {
+    setEditing(med);
+    setShowModal(true);
+  };
+
   return (
     <div className="card overflow-hidden">
       <div className="p-5 border-b border-slate-100 flex items-center justify-between">
         <h3 className="font-semibold text-slate-800">Active Medications</h3>
-        <button className="btn-primary text-sm flex items-center gap-2">
-          <Pill className="w-3.5 h-3.5" /> Add Medication
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            onClick={openAdd}
+            className="btn-primary text-sm flex items-center gap-2"
+          >
+            <Pill className="w-3.5 h-3.5" /> Add Medication
+          </button>
+        )}
       </div>
       {medications.length === 0 ? (
         <div className="p-8 text-center text-slate-400 text-sm">
@@ -873,9 +910,9 @@ function MedicationsTab({ medications }: { medications: any[] }) {
         </div>
       ) : (
         <div className="divide-y divide-slate-50">
-          {medications.map((m: any) => (
+          {medications.map((m) => (
             <div key={m.id} className="px-5 py-4">
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold text-slate-800 text-sm">
                     {m.name}
@@ -883,10 +920,32 @@ function MedicationsTab({ medications }: { medications: any[] }) {
                   {m.genericName && (
                     <p className="text-xs text-slate-400">{m.genericName}</p>
                   )}
+                  {(m.dosage || m.frequency) && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      {[m.dosage, m.frequency, m.route].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                 </div>
-                <span className="badge bg-emerald-50 text-emerald-700 text-xs">
-                  Active
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className={`badge text-xs ${
+                      m.isActive !== false
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {m.isActive !== false ? "Active" : "Inactive"}
+                  </span>
+                  {canManage && m.id && (
+                    <button
+                      type="button"
+                      onClick={() => openEdit(m)}
+                      className="text-xs text-primary-600 hover:underline"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="mt-2 flex gap-4 text-xs text-slate-500">
                 {m.dosage && <span>💊 {m.dosage}</span>}
@@ -901,6 +960,15 @@ function MedicationsTab({ medications }: { medications: any[] }) {
             </div>
           ))}
         </div>
+      )}
+
+      {showModal && (
+        <MedicationModal
+          patientId={patientId}
+          orgId={orgId}
+          medication={editing}
+          onClose={() => setShowModal(false)}
+        />
       )}
     </div>
   );

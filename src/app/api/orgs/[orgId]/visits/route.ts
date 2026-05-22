@@ -40,7 +40,8 @@ const createVisitSchema = z.object({
   tasks: z.array(visitTaskSchema).optional(),
 });
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     await processMissedVisitsForOrg(auth.orgId!);
 
@@ -83,7 +84,9 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "visit:read" },
+);
 
 export const POST = withOrgAccess(
   async (req: NextRequest, _ctx, auth) => {

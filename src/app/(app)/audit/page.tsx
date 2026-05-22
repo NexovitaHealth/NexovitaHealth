@@ -37,8 +37,10 @@ const RESOURCE_TYPE_OPTIONS = [
   { value: "portal_message", label: "Portal messages" },
   { value: "message", label: "Staff messages" },
   { value: "patient", label: "Patients" },
+  { value: "patient_medication", label: "Medications" },
   { value: "visit", label: "Visits" },
   { value: "clinical_alert", label: "Clinical alerts" },
+  { value: "compliance_dashboard", label: "Compliance dashboard" },
 ];
 
 export default function AuditPage() {

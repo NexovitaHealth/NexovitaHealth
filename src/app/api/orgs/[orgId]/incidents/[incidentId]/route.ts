@@ -27,7 +27,8 @@ const updateSchema = z.object({
   resolution: z.string().max(4000).nullable().optional(),
 });
 
-export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
+export const GET = withOrgAccess(
+  async (_req: NextRequest, ctx, auth) => {
   try {
     const incident = await getOrgIncidentOrThrow(
       auth.orgId!,
@@ -40,9 +41,12 @@ export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
     }
     return serverError(err);
   }
-});
+  },
+  { permission: "incident:read" },
+);
 
-export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
+export const PATCH = withOrgAccess(
+  async (req: NextRequest, ctx, auth) => {
   try {
     assertClinicalReviewer(auth);
 
@@ -115,4 +119,6 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
     }
     return serverError(err);
   }
-});
+  },
+  { permission: "incident:manage" },
+);

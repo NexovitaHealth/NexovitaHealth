@@ -35,7 +35,8 @@ const createSchema = z.object({
   incidentId: z.string().uuid().optional(),
 });
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     const { skip, take, page, pageSize } = getPagination(req, 50);
     const patientId = req.nextUrl.searchParams.get("patientId") || undefined;
@@ -69,9 +70,12 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "escalation:read" },
+);
 
-export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     assertClinicalReviewer(auth);
 
@@ -143,7 +147,7 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   } catch (err) {
     if (err instanceof Error) {
       if (err.message === "REVIEW_FORBIDDEN") {
-        return error("Only clinical reviewers can create escalations", 403);
+        return error("Only clinical reviewers can manage escalations", 403);
       }
       if (err.message === "PATIENT_NOT_FOUND") return error("Patient not found", 404);
       if (err.message === "ASSIGNEE_NOT_IN_ORG") {
@@ -155,4 +159,6 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     }
     return serverError(err);
   }
-});
+  },
+  { permission: "escalation:manage" },
+);

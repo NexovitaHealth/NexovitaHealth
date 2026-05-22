@@ -36,7 +36,8 @@ async function ensureOrgUsers(
   return members.length === uniqueIds.length;
 }
 
-export const GET = withOrgAccess(async (_req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (_req: NextRequest, _ctx, auth) => {
   try {
     const threads = await prisma.messageThread.findMany({
       where: {
@@ -96,9 +97,12 @@ export const GET = withOrgAccess(async (_req: NextRequest, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "message:read" },
+);
 
-export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     const body = await req.json();
     const parsed = sendMessageSchema.safeParse(body);
@@ -215,4 +219,6 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     }
     return serverError(err);
   }
-});
+  },
+  { permission: "message:send" },
+);

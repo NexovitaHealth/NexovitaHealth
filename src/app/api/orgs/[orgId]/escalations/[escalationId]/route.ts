@@ -28,7 +28,8 @@ const updateSchema = z.object({
   description: z.string().min(1).max(4000).optional(),
 });
 
-export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
+export const GET = withOrgAccess(
+  async (_req: NextRequest, ctx, auth) => {
   try {
     const escalation = await getOrgEscalationOrThrow(
       auth.orgId!,
@@ -41,9 +42,12 @@ export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
     }
     return serverError(err);
   }
-});
+  },
+  { permission: "escalation:read" },
+);
 
-export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
+export const PATCH = withOrgAccess(
+  async (req: NextRequest, ctx, auth) => {
   try {
     assertClinicalReviewer(auth);
 
@@ -115,4 +119,6 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
     }
     return serverError(err);
   }
-});
+  },
+  { permission: "escalation:manage" },
+);

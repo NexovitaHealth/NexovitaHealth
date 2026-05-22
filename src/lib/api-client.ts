@@ -161,6 +161,30 @@ export function orgApi(orgId: string) {
         create: (patientId: string, data: unknown) =>
           post<any>(`${orgBase}/patients/${patientId}/vitals`, data),
       },
+      medications: {
+        list: (patientId: string, activeOnly = true) =>
+          get<any[]>(
+            `${orgBase}/patients/${patientId}/medications?activeOnly=${activeOnly}`,
+          ),
+        create: (patientId: string, data: unknown) =>
+          post<any>(`${orgBase}/patients/${patientId}/medications`, data),
+        update: (patientId: string, medicationId: string, data: unknown) =>
+          patch<any>(
+            `${orgBase}/patients/${patientId}/medications/${medicationId}`,
+            data,
+          ),
+      },
+    },
+    branches: {
+      list: () =>
+        get<
+          Array<{
+            id: string;
+            name: string;
+            city?: string | null;
+            region?: string | null;
+          }>
+        >(`${orgBase}/branches`),
     },
     carePlans: {
       list: (params?: {

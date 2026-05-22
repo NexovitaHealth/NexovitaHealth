@@ -15,7 +15,8 @@ import { notifyCriticalClinicalAlert } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withOrgAccess(async (req, ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req, ctx, auth) => {
   try {
     const patient = await prisma.patient.findFirst({
       where: { id: ctx.params.patientId, orgId: auth.orgId!, deletedAt: null },
@@ -36,7 +37,9 @@ export const GET = withOrgAccess(async (req, ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "vital:read" },
+);
 
 const vitalSchema = z.object({
   systolicBp: z.number().int().min(40).max(300).optional(),
@@ -53,7 +56,8 @@ const vitalSchema = z.object({
   recordedAt: z.string().optional(),
 });
 
-export const POST = withOrgAccess(async (req, ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req, ctx, auth) => {
   try {
     const patient = await prisma.patient.findFirst({
       where: { id: ctx.params.patientId, orgId: auth.orgId!, deletedAt: null },
@@ -144,4 +148,6 @@ export const POST = withOrgAccess(async (req, ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "vital:create" },
+);

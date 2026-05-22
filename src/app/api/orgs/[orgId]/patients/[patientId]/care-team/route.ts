@@ -23,7 +23,8 @@ const removeSchema = z.object({
   userId: z.string().uuid(),
 });
 
-export const POST = withOrgAccess(async (req: NextRequest, ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req: NextRequest, ctx, auth) => {
   try {
     const body = await req.json();
     const parsed = assignSchema.safeParse(body);
@@ -88,9 +89,12 @@ export const POST = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "care_team:manage" },
+);
 
-export const DELETE = withOrgAccess(async (req: NextRequest, ctx, auth) => {
+export const DELETE = withOrgAccess(
+  async (req: NextRequest, ctx, auth) => {
   try {
     const body = await req.json();
     const parsed = removeSchema.safeParse(body);
@@ -136,4 +140,6 @@ export const DELETE = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "care_team:manage" },
+);

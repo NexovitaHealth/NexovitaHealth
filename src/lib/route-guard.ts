@@ -11,6 +11,7 @@ export { getStaffHomePath } from "@/lib/physician-nav";
 
 /** Staff pages that require a specific permission (user role from session JWT). */
 export const PAGE_PERMISSIONS: Record<string, Permission> = {
+  "/patients": "patient:read",
   "/billing": "billing:manage",
   "/audit": "audit:read",
   "/reports": "report:view",
@@ -21,9 +22,14 @@ export const PAGE_PERMISSIONS: Record<string, Permission> = {
   "/compliance": "compliance:read",
   "/alerts": "alert:read",
   "/escalations": "escalation:read",
+  "/incidents": "incident:read",
   "/family-caregivers": "caregiver:manage",
   "/supervisor": "clinical:supervise",
   "/my-visits": "visit:checkin",
+  "/schedule": "visit:read",
+  "/messages": "message:read",
+  "/vitals": "vital:read",
+  "/labs": "lab:read",
 };
 
 export function getPagePermission(pathname: string): Permission | undefined {

@@ -37,7 +37,8 @@ const createPhysicianOrderSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     const { skip, take, page, pageSize } = getPagination(req, 50);
     const patientId = req.nextUrl.searchParams.get("patientId") || undefined;
@@ -69,9 +70,12 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "physician_order:manage" },
+);
 
-export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     assertCarePlanEditor(auth.user.role);
 
@@ -162,4 +166,6 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     }
     return serverError(err);
   }
-});
+  },
+  { permission: "physician_order:manage" },
+);

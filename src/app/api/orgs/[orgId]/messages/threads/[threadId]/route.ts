@@ -5,7 +5,8 @@ import { forbidden, notFound, serverError, success } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
+export const GET = withOrgAccess(
+  async (_req: NextRequest, ctx, auth) => {
   try {
     const thread = await prisma.messageThread.findFirst({
       where: {
@@ -59,4 +60,6 @@ export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "message:read" },
+);

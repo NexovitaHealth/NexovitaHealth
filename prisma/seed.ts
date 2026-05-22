@@ -44,6 +44,34 @@ async function main() {
     },
   });
 
+  const mainBranch = await prisma.orgBranch.upsert({
+    where: { id: "00000000-0000-4000-8000-000000000001" },
+    update: {},
+    create: {
+      id: "00000000-0000-4000-8000-000000000001",
+      orgId: org.id,
+      name: "Los Angeles — Main",
+      city: "Los Angeles",
+      region: "CA",
+      phone: "+1-555-0100",
+    },
+  });
+
+  await prisma.orgBranch.upsert({
+    where: { id: "00000000-0000-4000-8000-000000000002" },
+    update: {},
+    create: {
+      id: "00000000-0000-4000-8000-000000000002",
+      orgId: org.id,
+      name: "San Diego — Coastal",
+      city: "San Diego",
+      region: "CA",
+      phone: "+1-555-0102",
+    },
+  });
+
+  void mainBranch;
+
   // Agency Admin  (OrgRole: owner)
   const adminHash = await bcrypt.hash("Admin@123!", 12);
   const adminUser = await prisma.user.upsert({

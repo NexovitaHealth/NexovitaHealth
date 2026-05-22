@@ -4,6 +4,7 @@ import { withOrgAccess } from "@/lib/middleware";
 import {
   success,
   created,
+  error,
   validationError,
   serverError,
   paginated,
@@ -11,6 +12,7 @@ import {
 import { createAuditLog } from "@/lib/audit";
 import { getPagination, getSearchParams } from "@/lib/pagination";
 import { parseAssignedToMeFilter } from "@/lib/patient-list-scope";
+import { getOrgBranchOrThrow } from "@/lib/branches";
 import {
   buildPatientCreateData,
   createPatientSchema,
@@ -18,7 +20,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const GET = withOrgAccess(async (req, ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req, ctx, auth) => {
   try {
     const { skip, take, page, pageSize } = getPagination(req);
     const { search, status } = getSearchParams(req);
@@ -87,7 +90,9 @@ export const GET = withOrgAccess(async (req, ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "patient:read" },
+);
 
 export const POST = withOrgAccess(
   async (req, _ctx, auth) => {
@@ -95,6 +100,17 @@ export const POST = withOrgAccess(
     const body = await req.json();
     const parsed = createPatientSchema.safeParse(body);
     if (!parsed.success) return validationError(parsed.error);
+
+    if (parsed.data.branchId) {
+      try {
+        await getOrgBranchOrThrow(auth.orgId!, parsed.data.branchId);
+      } catch (err) {
+        if (err instanceof Error && err.message === "BRANCH_NOT_FOUND") {
+          return error("Selected branch is not available for this organization", 400);
+        }
+        throw err;
+      }
+    }
 
     const patient = await prisma.patient.create({
       data: buildPatientCreateData(auth.orgId!, auth.userId, parsed.data),
@@ -107,7 +123,12 @@ export const POST = withOrgAccess(
       resourceType: "patient",
       resourceId: patient.id,
       patientId: patient.id,
-      metadata: { patientName: patient.fullName },
+      metadata: {
+        patientName: patient.fullName,
+        status: patient.status,
+        branchId: patient.branchId,
+        admissionSource: patient.admissionSource,
+      },
       req,
     });
 

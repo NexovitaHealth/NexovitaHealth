@@ -257,6 +257,58 @@ export const PERMISSIONS = {
   "audit:read": ["agency_admin", "superadmin", "owner", "admin"],
   "user:manage": ["agency_admin", "superadmin", "owner", "admin"],
   "email:admin": ["agency_admin", "superadmin", "owner", "admin"],
+
+  "message:read": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+    "aide",
+    "school_nurse",
+    "billing_manager",
+    "owner",
+    "admin",
+    "member",
+  ],
+  "message:send": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+    "aide",
+    "school_nurse",
+    "owner",
+    "admin",
+  ],
+
+  "care_team:manage": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "owner",
+    "admin",
+  ],
+
+  "medication:read": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+    "aide",
+    "billing_manager",
+    "school_nurse",
+    "owner",
+    "admin",
+    "member",
+  ],
+  "medication:manage": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+    "owner",
+    "admin",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

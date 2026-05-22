@@ -26,7 +26,8 @@ const createLabSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     const { searchParams } = req.nextUrl;
     const search = searchParams.get("search") || "";
@@ -55,7 +56,9 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "lab:read" },
+);
 
 export const POST = withOrgAccess(
   async (req: NextRequest, _ctx, auth) => {
