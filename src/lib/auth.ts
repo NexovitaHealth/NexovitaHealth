@@ -1,22 +1,18 @@
-import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { prisma } from './prisma'
 import { NextRequest } from 'next/server'
+import {
+  SESSION_COOKIE,
+  signSessionToken,
+  verifySessionToken,
+  type SessionJWTPayload,
+} from './session-token'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'nexovita-dev-secret-change-in-production'
-)
-const SESSION_COOKIE = 'nexovita_session'
+export { SESSION_COOKIE } from './session-token'
+export type JWTPayload = SessionJWTPayload
+
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
-
-export interface JWTPayload {
-  userId: string
-  email: string
-  role: string
-  sessionId: string
-  [key: string]: string  // required by jose JWTPayload
-}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12)
@@ -46,22 +42,13 @@ export async function createSession(userId: string, ipAddress?: string, userAgen
     sessionId: session.id,
   }
 
-  const token = await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime('7d')
-    .setIssuedAt()
-    .sign(JWT_SECRET)
+  const token = await signSessionToken(payload)
 
   return { token, session, expiresAt }
 }
 
 export async function verifySession(token: string): Promise<JWTPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET)
-    return payload as unknown as JWTPayload
-  } catch {
-    return null
-  }
+  return verifySessionToken(token)
 }
 
 export async function getSessionFromRequest(req: NextRequest) {

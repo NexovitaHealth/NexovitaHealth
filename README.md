@@ -137,6 +137,8 @@ All patient, task, and clinical data is scoped to an `orgId`. The `withOrgAccess
 
 JWT tokens are signed with HS256 using jose. Sessions are stored in the database for revocability, with the token itself used as a stateless fast-path. Cookie: `HttpOnly`, `SameSite=Lax`, 7-day TTL.
 
+Staff pages are guarded by `src/middleware.ts` (edge JWT verification). API routes use `getSessionFromRequest()` for full DB session validation. Unauthenticated navigation to staff routes redirects to `/login?redirect=…`.
+
 ### Role-Based Access Control
 
 Two dimensions:
