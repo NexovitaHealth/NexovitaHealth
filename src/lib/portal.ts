@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { FamilyCaregiverAccount, PortalSubjectType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import type { PortalAuthContext } from "@/lib/portal-auth";
+import { createNotifications } from "@/lib/notifications";
 
 export const PORTAL_ACCESS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -120,6 +122,54 @@ export function assertPortalPermission(
   key: keyof Omit<PortalPermissions, "subjectType">,
 ) {
   if (!permissions[key]) throw new Error("PORTAL_PERMISSION_DENIED");
+}
+
+export function getPortalActorUserId(portal: PortalAuthContext) {
+  const userId = portal.familyCaregiver?.user.id;
+  if (portal.subjectType !== "family_caregiver" || !userId) {
+    throw new Error("PORTAL_MESSAGING_UNAVAILABLE");
+  }
+  return userId;
+}
+
+export async function getPatientCareTeamUserIds(patientId: string) {
+  const members = await prisma.patientCareTeam.findMany({
+    where: { patientId, isActive: true },
+    select: { userId: true },
+  });
+  return members.map((member) => member.userId);
+}
+
+export async function notifyCareTeamOfPortalMessage(params: {
+  orgId: string;
+  patientId: string;
+  patientName: string;
+  senderUserId: string;
+  senderName: string;
+  preview: string;
+  threadId: string;
+}) {
+  const careTeamIds = await getPatientCareTeamUserIds(params.patientId);
+  const recipientIds = careTeamIds.filter((id) => id !== params.senderUserId);
+  if (recipientIds.length === 0) return;
+
+  const actionUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/messages`;
+
+  await createNotifications(
+    recipientIds.map((userId) => ({
+      userId,
+      type: "message",
+      title: `Family caregiver message: ${params.patientName}`,
+      body: `${params.senderName}: ${params.preview.slice(0, 160)}`,
+      actionUrl,
+      metadata: {
+        orgId: params.orgId,
+        patientId: params.patientId,
+        threadId: params.threadId,
+        senderUserId: params.senderUserId,
+      },
+    })),
+  );
 }
 
 export async function findOrCreateFamilyCaregiverUser(params: {

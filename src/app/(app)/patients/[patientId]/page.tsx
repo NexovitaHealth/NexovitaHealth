@@ -2,6 +2,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
+import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import {
   ChevronLeft,
@@ -18,6 +19,9 @@ import {
   Phone,
   Mail,
   MapPin,
+  Link2,
+  Loader2,
+  Check,
 } from "lucide-react";
 import {
   riskColor,
@@ -39,7 +43,30 @@ const TABS = [
 export default function PatientChartPage() {
   const { patientId } = useParams();
   const { request, orgId } = useApi();
+  const { user, activeOrg } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  const [portalLink, setPortalLink] = useState<string | null>(null);
+  const [portalError, setPortalError] = useState("");
+
+  const canIssuePortal =
+    ["owner", "admin"].includes(activeOrg?.role || "") ||
+    ["agency_admin", "supervisor", "superadmin"].includes(user?.role || "");
+
+  const issuePortalMutation = useMutation({
+    mutationFn: () =>
+      request<{ portalUrl: string; token: string }>(
+        `/api/orgs/${orgId}/patients/${patientId}/portal-access`,
+        { method: "POST" },
+      ),
+    onSuccess: (res) => {
+      setPortalLink(res.data?.portalUrl ?? null);
+      setPortalError("");
+    },
+    onError: (err: Error) => {
+      setPortalError(err.message);
+      setPortalLink(null);
+    },
+  });
 
   const { data: patientResponse, isLoading } = useQuery({
     queryKey: ["patient", orgId, patientId],
@@ -65,7 +92,7 @@ export default function PatientChartPage() {
     dateOfBirth?: string;
     gender?: string;
     admissionDate?: string;
-    phoneNumber?: string;
+    phone?: string;
     email?: string;
     address?: string;
     bloodType?: string;
@@ -150,12 +177,52 @@ export default function PatientChartPage() {
                 </span>
               </div>
             )}
+            {canIssuePortal && (
+              <button
+                type="button"
+                disabled={!patient.email || issuePortalMutation.isPending}
+                title={
+                  patient.email
+                    ? "Email a single-use patient portal login link"
+                    : "Add a patient email before issuing portal access"
+                }
+                onClick={() => issuePortalMutation.mutate()}
+                className="btn-ghost flex items-center gap-2 text-sm disabled:opacity-50"
+              >
+                {issuePortalMutation.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Link2 className="w-3.5 h-3.5" />
+                )}
+                Issue portal link
+              </button>
+            )}
             <button className="btn-ghost flex items-center gap-2 text-sm">
               <Edit className="w-3.5 h-3.5" />
               Edit
             </button>
           </div>
         </div>
+
+        {portalError && (
+          <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            {portalError}
+          </p>
+        )}
+        {portalLink && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+            <Check className="w-4 h-4 text-[#028090]" />
+            <span className="text-slate-700">Portal link sent to {patient.email}.</span>
+            <a
+              href={portalLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#028090] font-medium hover:underline truncate max-w-md"
+            >
+              Copy/open link
+            </a>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 mt-5">

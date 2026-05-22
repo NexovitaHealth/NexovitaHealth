@@ -538,6 +538,15 @@ export const portal = {
   carePlan: () => get<any>("/portal/care-plan"),
   vitals: (limit = 20) => get<any[]>(`/portal/vitals?limit=${limit}`),
   visits: (days = 30) => get<any[]>(`/portal/visits?days=${days}`),
+  medications: () => get<any[]>("/portal/medications"),
+  labs: () => get<any[]>("/portal/labs"),
+  documents: () => get<any[]>("/portal/documents"),
+  careTeam: () => get<any[]>("/portal/care-team"),
+  messageThreads: () => get<any[]>("/portal/messages/threads"),
+  messageThread: (threadId: string) =>
+    get<any[]>(`/portal/messages/threads/${threadId}`),
+  sendMessage: (data: { content: string; threadId?: string; subject?: string }) =>
+    post<any>("/portal/messages", data),
 };
 
 export { ApiError };
