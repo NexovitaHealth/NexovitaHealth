@@ -135,11 +135,14 @@ export default function PhysicianPortalPage() {
           <p className="text-2xl font-bold">{counts.pendingVisitReviews}</p>
           <p className="text-xs text-slate-500">Visits pending review</p>
         </Link>
-        <div className="card p-4 bg-slate-50/80">
+        <Link
+          href="/care-plans?unsignedOnly=true"
+          className="card p-4 hover:border-[#028090]/40 transition-colors bg-slate-50/80"
+        >
           <FileSignature className="w-5 h-5 text-slate-500 mb-2" />
           <p className="text-2xl font-bold">{counts.carePlansToSign}</p>
           <p className="text-xs text-slate-500">Care plans awaiting signature</p>
-        </div>
+        </Link>
       </div>
 
       {portal.carePlansPendingSign.length > 0 && (

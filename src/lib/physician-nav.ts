@@ -15,6 +15,7 @@ export function isPhysicianPortalRole(role: string | undefined | null) {
 export const PHYSICIAN_NAV_HREFS = new Set([
   "/physician",
   "/patients",
+  "/care-plans",
   "/physician-orders",
   "/escalations",
   "/alerts",

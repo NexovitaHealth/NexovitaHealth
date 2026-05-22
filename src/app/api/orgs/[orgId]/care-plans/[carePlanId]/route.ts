@@ -31,20 +31,23 @@ const updateCarePlanSchema = z.object({
   reviewDate: z.string().datetime().nullable().optional(),
 });
 
-export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
-  try {
-    const carePlan = await getOrgCarePlanOrThrow(
-      auth.orgId!,
-      ctx.params.carePlanId,
-    );
-    return success(carePlan);
-  } catch (err) {
-    if (err instanceof Error && err.message === "CARE_PLAN_NOT_FOUND") {
-      return notFound("Care plan");
+export const GET = withOrgAccess(
+  async (_req: NextRequest, ctx, auth) => {
+    try {
+      const carePlan = await getOrgCarePlanOrThrow(
+        auth.orgId!,
+        ctx.params.carePlanId,
+      );
+      return success(carePlan);
+    } catch (err) {
+      if (err instanceof Error && err.message === "CARE_PLAN_NOT_FOUND") {
+        return notFound("Care plan");
+      }
+      return serverError(err);
     }
-    return serverError(err);
-  }
-});
+  },
+  { permission: "careplan:read" },
+);
 
 export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {

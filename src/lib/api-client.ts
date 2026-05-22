@@ -168,9 +168,18 @@ export function orgApi(orgId: string) {
         pageSize?: number;
         patientId?: string;
         status?: string;
+        search?: string;
+        unsignedOnly?: boolean;
       }) => get<any[]>(`${orgBase}/care-plans${query(params)}`),
       get: (carePlanId: string) =>
         get<any>(`${orgBase}/care-plans/${carePlanId}`),
+      history: (carePlanId: string) =>
+        get<{
+          anchorId: string;
+          rootId: string;
+          patient: { id: string; fullName: string } | null;
+          versions: unknown[];
+        }>(`${orgBase}/care-plans/${carePlanId}/history`),
       create: (data: {
         patientId: string;
         title: string;

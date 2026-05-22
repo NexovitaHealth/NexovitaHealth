@@ -66,6 +66,14 @@ export const PERMISSIONS = {
     "physician_independent",
   ],
 
+  "careplan:read": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+    "owner",
+    "admin",
+  ],
   "careplan:create": [
     "agency_admin",
     "supervisor",

@@ -18,6 +18,11 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { href: "/supervisor", label: "Supervisor Panel", permission: "clinical:supervise" },
   { href: "/visit-review", label: "Visit Review", permission: "review:decide" },
   {
+    href: "/care-plans",
+    label: "Care Plans",
+    permission: "careplan:read",
+  },
+  {
     href: "/physician-orders",
     label: "Physician Orders",
     permission: "physician_order:manage",

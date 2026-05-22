@@ -16,6 +16,7 @@ export const PAGE_PERMISSIONS: Record<string, Permission> = {
   "/reports": "report:view",
   "/visit-review": "review:decide",
   "/physician": "physician:portal",
+  "/care-plans": "careplan:read",
   "/physician-orders": "physician_order:manage",
   "/alerts": "alert:read",
   "/escalations": "escalation:read",

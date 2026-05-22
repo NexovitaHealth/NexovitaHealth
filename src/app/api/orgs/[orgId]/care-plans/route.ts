@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +6,6 @@ import { createAuditLog } from "@/lib/audit";
 import {
   created,
   error,
-  paginated,
   serverError,
   validationError,
 } from "@/lib/api-response";
@@ -16,6 +15,7 @@ import {
   assertCarePlanEditor,
   carePlanInclude,
   getOrgPatientOrThrow,
+  listOrgCarePlans,
 } from "@/lib/care-plans";
 
 export const dynamic = "force-dynamic";
@@ -30,35 +30,43 @@ const carePlanSchema = z.object({
   reviewDate: z.string().datetime().optional(),
 });
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
-  try {
-    const { skip, take, page, pageSize } = getPagination(req, 50);
-    const patientId = req.nextUrl.searchParams.get("patientId") || undefined;
-    const status = req.nextUrl.searchParams.get("status") || undefined;
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
+    try {
+      const { page, pageSize } = getPagination(req, 50);
+      const patientId = req.nextUrl.searchParams.get("patientId") || undefined;
+      const status = req.nextUrl.searchParams.get("status") || undefined;
+      const search = req.nextUrl.searchParams.get("search") || undefined;
+      const unsignedOnly =
+        req.nextUrl.searchParams.get("unsignedOnly") === "true";
 
-    const where = {
-      orgId: auth.orgId!,
-      deletedAt: null,
-      ...(patientId && { patientId }),
-      ...(status && { status: status as "draft" }),
-    };
+      const { items, total, meta } = await listOrgCarePlans(auth.orgId!, {
+        page,
+        pageSize,
+        patientId,
+        status,
+        search,
+        unsignedOnly,
+      });
 
-    const [carePlans, total] = await Promise.all([
-      prisma.carePlan.findMany({
-        where,
-        skip,
-        take,
-        orderBy: [{ patientId: "asc" }, { version: "desc" }],
-        include: carePlanInclude,
-      }),
-      prisma.carePlan.count({ where }),
-    ]);
-
-    return paginated(carePlans, total, page, pageSize);
-  } catch (err) {
-    return serverError(err);
-  }
-});
+      return NextResponse.json({
+        success: true,
+        data: items,
+        pagination: {
+          total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(total / pageSize) || 1,
+          hasMore: page * pageSize < total,
+        },
+        meta,
+      });
+    } catch (err) {
+      return serverError(err);
+    }
+  },
+  { permission: "careplan:read" },
+);
 
 export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {

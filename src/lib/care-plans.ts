@@ -14,6 +14,127 @@ export const carePlanInclude = {
   },
 } satisfies Prisma.CarePlanInclude;
 
+export const carePlanListInclude = {
+  patient: { select: { id: true, fullName: true } },
+  author: { select: { id: true, fullName: true } },
+  signedBy: { select: { id: true, fullName: true } },
+  parentCarePlan: { select: { id: true, title: true, version: true } },
+  _count: { select: { renewals: { where: { deletedAt: null } } } },
+} satisfies Prisma.CarePlanInclude;
+
+export const carePlanHistoryInclude = {
+  author: { select: { id: true, fullName: true, role: true } },
+  signedBy: { select: { id: true, fullName: true, npiNumber: true } },
+} satisfies Prisma.CarePlanInclude;
+
+export type ListOrgCarePlansOptions = {
+  page: number;
+  pageSize: number;
+  patientId?: string;
+  status?: string;
+  search?: string;
+  unsignedOnly?: boolean;
+};
+
+export async function listOrgCarePlans(
+  orgId: string,
+  options: ListOrgCarePlansOptions,
+) {
+  const { page, pageSize, patientId, status, search, unsignedOnly } = options;
+  const skip = (page - 1) * pageSize;
+
+  const where: Prisma.CarePlanWhereInput = {
+    orgId,
+    deletedAt: null,
+    ...(patientId && { patientId }),
+    ...(status && { status: status as CarePlan["status"] }),
+    ...(unsignedOnly && { signedAt: null }),
+    ...(search && {
+      OR: [
+        { title: { contains: search, mode: "insensitive" } },
+        {
+          patient: {
+            fullName: { contains: search, mode: "insensitive" },
+          },
+        },
+      ],
+    }),
+  };
+
+  const [items, total, unsignedCount] = await Promise.all([
+    prisma.carePlan.findMany({
+      where,
+      skip,
+      take: pageSize,
+      orderBy: [{ updatedAt: "desc" }],
+      include: carePlanListInclude,
+    }),
+    prisma.carePlan.count({ where }),
+    prisma.carePlan.count({
+      where: { orgId, deletedAt: null, signedAt: null },
+    }),
+  ]);
+
+  return { items, total, meta: { unsignedCount } };
+}
+
+export async function getCarePlanVersionHistory(
+  orgId: string,
+  carePlanId: string,
+) {
+  const anchor = await prisma.carePlan.findFirst({
+    where: { id: carePlanId, orgId, deletedAt: null },
+    select: { id: true, patientId: true, parentCarePlanId: true },
+  });
+  if (!anchor) throw new Error("CARE_PLAN_NOT_FOUND");
+
+  let rootId = anchor.id;
+  let parentId = anchor.parentCarePlanId;
+  while (parentId) {
+    const parent = await prisma.carePlan.findFirst({
+      where: { id: parentId, orgId, deletedAt: null },
+      select: { id: true, parentCarePlanId: true },
+    });
+    if (!parent) break;
+    rootId = parent.id;
+    parentId = parent.parentCarePlanId;
+  }
+
+  type HistoryRow = Prisma.CarePlanGetPayload<{
+    include: typeof carePlanHistoryInclude;
+  }>;
+  const versions: HistoryRow[] = [];
+
+  let currentId: string | null = rootId;
+  while (currentId) {
+    const version: HistoryRow | null = await prisma.carePlan.findFirst({
+      where: { id: currentId, orgId, deletedAt: null },
+      include: carePlanHistoryInclude,
+    });
+    if (!version) break;
+    versions.push(version);
+
+    const child: { id: string } | null = await prisma.carePlan.findFirst({
+      where: { parentCarePlanId: currentId, orgId, deletedAt: null },
+      orderBy: { version: "desc" },
+      select: { id: true },
+    });
+    currentId = child?.id ?? null;
+  }
+
+  const patient = await prisma.patient.findFirst({
+    where: { id: anchor.patientId, orgId },
+    select: { id: true, fullName: true },
+  });
+
+  return {
+    anchorId: carePlanId,
+    rootId,
+    patient,
+    versions,
+  };
+}
+
 export const physicianOrderInclude = {
   patient: { select: { id: true, fullName: true } },
   physician: { select: { id: true, fullName: true, role: true, npiNumber: true } },
