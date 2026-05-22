@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
 import { usePermissions } from "@/hooks/usePermissions";
 import { formatDate } from "@/lib/utils";
+import { ComplianceTrendCharts } from "@/components/compliance/ComplianceTrendCharts";
 import {
   ShieldCheck,
   Loader2,
@@ -64,16 +66,29 @@ type ComplianceDashboard = {
     severity: string;
     patient: { id: string; fullName: string };
   }>;
+  trends: {
+    days: number;
+    from: string;
+    to: string;
+    alerts: Array<{ date: string; count: number }>;
+    escalations: Array<{ date: string; count: number }>;
+    incidents: Array<{ date: string; count: number }>;
+    visitReviews: Array<{ date: string; count: number }>;
+    missedVisits: Array<{ date: string; count: number }>;
+  };
 };
 
 export default function ComplianceDashboardPage() {
   const { request, orgId } = useApi();
   const { can } = usePermissions();
+  const [trendDays, setTrendDays] = useState(14);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["compliance-dashboard", orgId],
+    queryKey: ["compliance-dashboard", orgId, trendDays],
     queryFn: () =>
-      request<ComplianceDashboard>(`/api/orgs/{orgId}/compliance/dashboard`),
+      request<ComplianceDashboard>(
+        `/api/orgs/{orgId}/compliance/dashboard?trendDays=${trendDays}`,
+      ),
     enabled: !!orgId && can("compliance:read"),
   });
 
@@ -120,6 +135,14 @@ export default function ComplianceDashboardPage() {
           missed visits today.
         </p>
       </div>
+
+      {dash.trends && (
+        <ComplianceTrendCharts
+          trends={dash.trends}
+          trendDays={trendDays}
+          onTrendDaysChange={setTrendDays}
+        />
+      )}
 
       <div>
         <h2 className="text-sm font-semibold text-slate-700 mb-3">Clinical alerts by severity</h2>

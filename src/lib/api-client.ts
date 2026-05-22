@@ -476,7 +476,7 @@ export function orgApi(orgId: string) {
         }>(`${orgBase}/dashboard`),
     },
     compliance: {
-      dashboard: () =>
+      dashboard: (params?: { trendDays?: number }) =>
         get<{
           counts: {
             openComplianceItems: number;
@@ -491,11 +491,21 @@ export function orgApi(orgId: string) {
             highRiskActivePatients: number;
           };
           alertSeverityCounts: { critical: number; warning: number; info: number };
+          trends: {
+            days: number;
+            from: string;
+            to: string;
+            alerts: Array<{ date: string; count: number }>;
+            escalations: Array<{ date: string; count: number }>;
+            incidents: Array<{ date: string; count: number }>;
+            visitReviews: Array<{ date: string; count: number }>;
+            missedVisits: Array<{ date: string; count: number }>;
+          };
           expiringAuthorisations: unknown[];
           recentClinicalAlerts: unknown[];
           recentEscalations: unknown[];
           recentIncidents: unknown[];
-        }>(`${orgBase}/compliance/dashboard`),
+        }>(`${orgBase}/compliance/dashboard${query(params)}`),
     },
     schedule: {
       list: (params?: { startDate?: string; endDate?: string }) =>

@@ -7,16 +7,19 @@ import { getOrgComplianceDashboard } from "@/lib/compliance-dashboard";
 export const dynamic = "force-dynamic";
 
 export const GET = withOrgAccess(
-  async (_req: NextRequest, _ctx, auth) => {
+  async (req: NextRequest, _ctx, auth) => {
     try {
-      const summary = await getOrgComplianceDashboard(auth.orgId!);
+      const trendDays = req.nextUrl.searchParams.get("trendDays");
+      const summary = await getOrgComplianceDashboard(auth.orgId!, {
+        trendDays: trendDays ?? undefined,
+      });
       await createAuditLog({
         orgId: auth.orgId,
         actorId: auth.userId,
         action: "viewed",
         resourceType: "compliance_dashboard",
         resourceId: auth.orgId,
-        req: _req,
+        req: req,
       });
       return success(summary);
     } catch (err) {

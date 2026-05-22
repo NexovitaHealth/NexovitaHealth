@@ -1,10 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { syncExpiredAuthorisations } from "@/lib/payer-authorisations";
+import {
+  clampComplianceTrendDays,
+  getOrgComplianceTrends,
+} from "@/lib/compliance-trends";
 
 const OPEN_ESCALATION = ["open", "in_review"] as const;
 const OPEN_INCIDENT = ["reported", "triaged"] as const;
 
-export async function getOrgComplianceDashboard(orgId: string) {
+export async function getOrgComplianceDashboard(
+  orgId: string,
+  options?: { trendDays?: unknown },
+) {
+  const trendDays = clampComplianceTrendDays(options?.trendDays);
   await syncExpiredAuthorisations(orgId);
 
   const now = new Date();
@@ -128,6 +136,8 @@ export async function getOrgComplianceDashboard(orgId: string) {
     pendingVisitReviews +
     missedVisitsToday;
 
+  const trends = await getOrgComplianceTrends(orgId, trendDays);
+
   return {
     counts: {
       openComplianceItems,
@@ -146,5 +156,6 @@ export async function getOrgComplianceDashboard(orgId: string) {
     recentClinicalAlerts,
     recentEscalations,
     recentIncidents,
+    trends,
   };
 }
