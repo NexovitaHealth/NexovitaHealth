@@ -13,6 +13,7 @@ export const PAGE_PERMISSIONS: Record<string, Permission> = {
   "/reports": "report:view",
   "/visit-review": "review:decide",
   "/physician-orders": "physician_order:manage",
+  "/alerts": "alert:read",
   "/escalations": "escalation:read",
   "/family-caregivers": "caregiver:manage",
   "/supervisor": "clinical:supervise",

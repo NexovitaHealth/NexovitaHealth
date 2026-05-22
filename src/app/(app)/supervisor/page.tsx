@@ -12,6 +12,7 @@ import {
   FileWarning,
   ClipboardCheck,
   CreditCard,
+  Activity,
 } from "lucide-react";
 
 type Panel = {
@@ -20,6 +21,8 @@ type Panel = {
     openEscalations: number;
     openIncidents: number;
     pendingVisitReviews: number;
+    openClinicalAlerts: number;
+    openCriticalAlerts: number;
   };
   expiringAuthorisations: Array<{
     id: string;
@@ -40,6 +43,13 @@ type Panel = {
     id: string;
     incidentType: string;
     severity: string;
+    patient: { id: string; fullName: string };
+  }>;
+  recentClinicalAlerts: Array<{
+    id: string;
+    title: string;
+    severity: string;
+    alertType: string;
     patient: { id: string; fullName: string };
   }>;
 };
@@ -87,11 +97,11 @@ export default function SupervisorPanelPage() {
           Supervisor panel
         </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Authorisation expiry, escalations, incidents, and review backlog.
+          Authorisation expiry, clinical alerts, escalations, incidents, and review backlog.
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <Link
           href="/billing"
           className="card p-4 hover:border-[#028090]/40 transition-colors"
@@ -114,6 +124,18 @@ export default function SupervisorPanelPage() {
           <ClipboardCheck className="w-5 h-5 text-[#028090] mb-2" />
           <p className="text-2xl font-bold">{panel.counts.pendingVisitReviews}</p>
           <p className="text-xs text-slate-500">Visits to review</p>
+        </Link>
+        <Link href="/alerts" className="card p-4 hover:border-[#028090]/40">
+          <Activity className="w-5 h-5 text-red-600 mb-2" />
+          <p className="text-2xl font-bold">
+            {panel.counts.openClinicalAlerts}
+            {panel.counts.openCriticalAlerts > 0 && (
+              <span className="text-sm font-normal text-red-600 ml-1">
+                ({panel.counts.openCriticalAlerts} critical)
+              </span>
+            )}
+          </p>
+          <p className="text-xs text-slate-500">Open clinical alerts</p>
         </Link>
       </div>
 
@@ -141,7 +163,35 @@ export default function SupervisorPanelPage() {
         </section>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <section className="card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold">Recent clinical alerts</h2>
+            <Link href="/alerts" className="text-xs text-[#028090] hover:underline">
+              View queue
+            </Link>
+          </div>
+          {panel.recentClinicalAlerts.length === 0 ? (
+            <p className="text-sm text-slate-500">None open.</p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {panel.recentClinicalAlerts.map((a) => (
+                <li key={a.id}>
+                  <Link
+                    href={`/patients/${a.patient.id}`}
+                    className="font-medium text-[#028090] hover:underline"
+                  >
+                    {a.title}
+                  </Link>
+                  <span className="text-slate-500">
+                    {" "}
+                    — {a.patient.fullName} ({a.severity})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
         <section className="card p-5">
           <h2 className="font-semibold mb-3">Recent escalations</h2>
           {panel.recentEscalations.length === 0 ? (

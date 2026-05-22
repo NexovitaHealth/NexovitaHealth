@@ -29,8 +29,11 @@ export const GET = withOrgAccess(async (_req: NextRequest, _ctx, auth) => {
       openEscalations,
       openIncidents,
       pendingReviews,
+      openClinicalAlerts,
+      openCriticalAlerts,
       recentEscalations,
       recentIncidents,
+      recentClinicalAlerts,
     ] = await Promise.all([
       prisma.payerAuthorisation.findMany({
         where: {
@@ -60,6 +63,12 @@ export const GET = withOrgAccess(async (_req: NextRequest, _ctx, auth) => {
       prisma.visitReview.count({
         where: { orgId: auth.orgId!, status: "pending" },
       }),
+      prisma.clinicalAlert.count({
+        where: { orgId: auth.orgId!, isResolved: false },
+      }),
+      prisma.clinicalAlert.count({
+        where: { orgId: auth.orgId!, isResolved: false, severity: "critical" },
+      }),
       prisma.escalation.findMany({
         where: {
           orgId: auth.orgId!,
@@ -80,6 +89,12 @@ export const GET = withOrgAccess(async (_req: NextRequest, _ctx, auth) => {
         take: 5,
         include: { patient: { select: { id: true, fullName: true } } },
       }),
+      prisma.clinicalAlert.findMany({
+        where: { orgId: auth.orgId!, isResolved: false },
+        orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
+        take: 5,
+        include: { patient: { select: { id: true, fullName: true } } },
+      }),
     ]);
 
     return success({
@@ -88,10 +103,13 @@ export const GET = withOrgAccess(async (_req: NextRequest, _ctx, auth) => {
         openEscalations,
         openIncidents,
         pendingVisitReviews: pendingReviews,
+        openClinicalAlerts,
+        openCriticalAlerts,
       },
       expiringAuthorisations,
       recentEscalations,
       recentIncidents,
+      recentClinicalAlerts,
     });
   } catch (err) {
     return serverError(err);

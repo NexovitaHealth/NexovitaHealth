@@ -23,6 +23,7 @@ export const NAV_ITEMS: NavItemConfig[] = [
   },
   { href: "/escalations", label: "Escalations", permission: "escalation:read" },
   { href: "/incidents", label: "Incidents", permission: "incident:read" },
+  { href: "/alerts", label: "Clinical Alerts", permission: "alert:read" },
   { href: "/vitals", label: "Vitals Monitor", permission: "vital:read" },
   { href: "/labs", label: "Lab Results", permission: "lab:read" },
   { href: "/messages", label: "Messages", permission: "task:read" },

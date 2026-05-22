@@ -135,13 +135,15 @@ export default function DashboardPage() {
           trend="Org-wide open"
           color="bg-amber-50 text-amber-600"
         />
-        <StatCard
-          icon={Activity}
-          label="Alerts"
-          value={unresolvedAlerts}
-          trend="Unresolved clinical alerts"
-          color="bg-emerald-50 text-emerald-600"
-        />
+        <Link href="/alerts" className="block hover:opacity-95 transition-opacity">
+          <StatCard
+            icon={Activity}
+            label="Alerts"
+            value={unresolvedAlerts}
+            trend="Unresolved clinical alerts"
+            color="bg-emerald-50 text-emerald-600"
+          />
+        </Link>
       </div>
 
       {summary && (

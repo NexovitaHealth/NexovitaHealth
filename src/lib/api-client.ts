@@ -400,6 +400,19 @@ export function orgApi(orgId: string) {
       list: (params?: { search?: string; status?: string; limit?: number }) =>
         get<any[]>(`${orgBase}/labs${query(params)}`),
     },
+    alerts: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        resolved?: "true" | "false" | "all";
+        severity?: string;
+        patientId?: string;
+        alertType?: string;
+      }) => get<any[]>(`${orgBase}/alerts${query(params)}`),
+      get: (alertId: string) => get<any>(`${orgBase}/alerts/${alertId}`),
+      resolve: (alertId: string) =>
+        patch<any>(`${orgBase}/alerts/${alertId}`, { action: "resolve" }),
+    },
     dashboard: {
       summary: () =>
         get<{

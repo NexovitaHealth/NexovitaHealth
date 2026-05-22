@@ -43,6 +43,7 @@ const NAV_ICONS: Record<string, React.ElementType> = {
   "/supervisor": Shield,
   "/visit-review": ClipboardCheck,
   "/physician-orders": FileSignature,
+  "/alerts": Activity,
   "/escalations": AlertTriangle,
   "/incidents": FileWarning,
   "/vitals": Activity,

@@ -50,6 +50,22 @@ export const PERMISSIONS = {
     "school_nurse",
   ],
 
+  "alert:read": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+    "aide",
+    "school_nurse",
+    "billing_manager",
+  ],
+  "alert:resolve": [
+    "agency_admin",
+    "supervisor",
+    "physician",
+    "physician_independent",
+  ],
+
   "careplan:create": [
     "agency_admin",
     "supervisor",
