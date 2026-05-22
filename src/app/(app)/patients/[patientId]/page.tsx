@@ -22,6 +22,7 @@ import {
   Link2,
   Loader2,
   Check,
+  MessageSquare,
 } from "lucide-react";
 import {
   riskColor,
@@ -225,6 +226,13 @@ export default function PatientChartPage() {
                 Issue portal link
               </button>
             )}
+            <Link
+              href={`/messages?patientId=${patientId}`}
+              className="btn-ghost flex items-center gap-2 text-sm"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              Message
+            </Link>
             {canUpdatePatient && (
               <button
                 type="button"
