@@ -284,6 +284,41 @@ export function orgApi(orgId: string) {
       invite: (email: string, role: string) =>
         post<any>(`${orgBase}/invite`, { email, role }),
     },
+    familyCaregivers: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        patientId?: string;
+        status?: string;
+      }) => get<any[]>(`${orgBase}/family-caregivers${query(params)}`),
+      create: (data: {
+        patientId: string;
+        email: string;
+        fullName: string;
+        phone?: string;
+        relationship: string;
+        canViewSchedule?: boolean;
+        canViewCarePlan?: boolean;
+        canViewVitals?: boolean;
+        canMessageCareTeam?: boolean;
+      }) => post<any>(`${orgBase}/family-caregivers`, data),
+      approve: (accountId: string) =>
+        patch<any>(`${orgBase}/family-caregivers/${accountId}/approve`, {}),
+      reject: (accountId: string) =>
+        patch<any>(`${orgBase}/family-caregivers/${accountId}/reject`, {}),
+      revoke: (accountId: string) =>
+        patch<any>(`${orgBase}/family-caregivers/${accountId}/revoke`, {}),
+      issuePortalAccess: (accountId: string) =>
+        post<{ portalUrl: string; expiresAt: string; token: string }>(
+          `${orgBase}/family-caregivers/${accountId}/portal-access`,
+        ),
+    },
+    portalAccess: {
+      issueForPatient: (patientId: string) =>
+        post<{ portalUrl: string; expiresAt: string; token: string }>(
+          `${orgBase}/patients/${patientId}/portal-access`,
+        ),
+    },
     audit: {
       list: (params?: {
         page?: number;
@@ -487,6 +522,24 @@ export const invitations = {
   forOrg: (orgId: string) => orgApi(orgId).invitations,
 };
 
+export const familyCaregivers = {
+  forOrg: (orgId: string) => orgApi(orgId).familyCaregivers,
+};
+
+export const portalAccess = {
+  forOrg: (orgId: string) => orgApi(orgId).portalAccess,
+};
+
+export const portal = {
+  login: (token: string) => post<any>("/portal/auth/login", { token }),
+  logout: () => post("/portal/auth/logout"),
+  me: () => get<any>("/portal/auth/me"),
+  overview: () => get<any>("/portal/overview"),
+  carePlan: () => get<any>("/portal/care-plan"),
+  vitals: (limit = 20) => get<any[]>(`/portal/vitals?limit=${limit}`),
+  visits: (days = 30) => get<any[]>(`/portal/visits?days=${days}`),
+};
+
 export { ApiError };
 export default {
   auth,
@@ -509,4 +562,7 @@ export default {
   billing,
   members,
   invitations,
+  familyCaregivers,
+  portalAccess,
+  portal,
 };

@@ -161,6 +161,11 @@ enum FamilyCaregiverStatus {
   rejected
 }
 
+enum PortalSubjectType {
+  patient
+  family_caregiver
+}
+
 enum PayerAuthorisationStatus {
   active
   pending
@@ -232,6 +237,7 @@ model User {
   incidentsAssigned Incident[]       @relation("IncidentsAssigned")
   familyCaregiverAccounts FamilyCaregiverAccount[] @relation("FamilyCaregiverUser")
   familyCaregiverApprovals FamilyCaregiverAccount[] @relation("FamilyCaregiverApprovedBy")
+  portalTokensCreated     PortalAccessToken[]      @relation("PortalTokenCreatedBy")
 
   @@index([email])
   @@index([role])
@@ -319,6 +325,7 @@ model Organization {
   familyCaregiverAccounts FamilyCaregiverAccount[]
   payerAuthorisations   PayerAuthorisation[]
   fileAttachments       FileAttachment[]
+  portalAccessTokens    PortalAccessToken[]
 
   @@index([slug])
   @@index([deletedAt])
@@ -474,6 +481,7 @@ model Patient {
   payerAuthorisations PayerAuthorisation[]
   fileAttachments   FileAttachment[]
   messageThreads    MessageThread[]
+  portalAccessTokens PortalAccessToken[]
 
   @@index([orgId])
   @@index([status])
@@ -1036,6 +1044,7 @@ model FamilyCaregiverAccount {
   patient        Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
   user           User                  @relation("FamilyCaregiverUser", fields: [userId], references: [id], onDelete: Cascade)
   approvedBy     User?                 @relation("FamilyCaregiverApprovedBy", fields: [approvedById], references: [id])
+  portalAccessTokens PortalAccessToken[]
 
   @@unique([patientId, userId])
   @@index([orgId])
@@ -1043,6 +1052,31 @@ model FamilyCaregiverAccount {
   @@index([userId])
   @@index([status])
   @@map("family_caregiver_accounts")
+}
+
+model PortalAccessToken {
+  id                       String              @id @default(uuid())
+  orgId                    String              @map("org_id")
+  patientId                String              @map("patient_id")
+  subjectType              PortalSubjectType   @map("subject_type")
+  familyCaregiverAccountId String?             @map("family_caregiver_account_id")
+  tokenHash                String              @unique @map("token_hash")
+  expiresAt                DateTime            @map("expires_at")
+  usedAt                   DateTime?           @map("used_at")
+  revokedAt                DateTime?           @map("revoked_at")
+  createdById              String?             @map("created_by_id")
+  createdAt                DateTime            @default(now()) @map("created_at")
+
+  org                      Organization        @relation(fields: [orgId], references: [id])
+  patient                  Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  familyCaregiverAccount   FamilyCaregiverAccount? @relation(fields: [familyCaregiverAccountId], references: [id], onDelete: Cascade)
+  createdBy                User?               @relation("PortalTokenCreatedBy", fields: [createdById], references: [id])
+
+  @@index([orgId])
+  @@index([patientId])
+  @@index([familyCaregiverAccountId])
+  @@index([expiresAt])
+  @@map("portal_access_tokens")
 }
 
 model PayerAuthorisation {

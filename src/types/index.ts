@@ -133,6 +133,8 @@ export type FamilyCaregiverStatus =
   | 'revoked'
   | 'rejected'
 
+export type PortalSubjectType = 'patient' | 'family_caregiver'
+
 export type PayerAuthorisationStatus =
   | 'active'
   | 'pending'

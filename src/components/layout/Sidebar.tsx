@@ -13,6 +13,7 @@ import {
   FileText,
   Calendar,
   Heart,
+  UserCheck,
   LogOut,
   ChevronDown,
   Building2,
@@ -55,6 +56,12 @@ export function Sidebar() {
       roles: ["agency_admin", "supervisor", "billing_manager"],
     },
     { href: `/team`, label: "Team", icon: Heart },
+    {
+      href: `/family-caregivers`,
+      label: "Family Caregivers",
+      icon: UserCheck,
+      roles: ["agency_admin", "supervisor", "superadmin"],
+    },
     {
       href: `/audit`,
       label: "Audit Log",

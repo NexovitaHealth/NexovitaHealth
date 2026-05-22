@@ -116,6 +116,39 @@ export async function sendEmailVerification(email: string, token: string): Promi
   })
 }
 
+export async function sendPortalAccessEmail(params: {
+  email: string
+  recipientName: string
+  patientName: string
+  portalLabel: string
+  token: string
+}): Promise<void> {
+  const loginUrl = `${APP_URL}/portal/login?token=${encodeURIComponent(params.token)}`
+
+  await sendMail({
+    to: params.email,
+    subject: `Your ${params.portalLabel} access for ${params.patientName}`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a5276;">Portal access ready</h2>
+        <p>Hello ${params.recipientName},</p>
+        <p>You now have read-only ${params.portalLabel} access for <strong>${params.patientName}</strong>.</p>
+        <p>Use the secure link below to sign in. This link is single-use and expires in 7 days.</p>
+        <a href="${loginUrl}" style="
+          display: inline-block;
+          background: #028090;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 6px;
+          text-decoration: none;
+          margin: 16px 0;
+        ">Open Portal</a>
+        <p style="color: #666; font-size: 14px;">If you did not expect this email, contact your care agency.</p>
+      </div>
+    `,
+  })
+}
+
 export async function sendCriticalAlertEmail(params: {
   email: string
   recipientName: string
