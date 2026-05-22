@@ -68,7 +68,7 @@ export async function sendInvitationEmail(params: {
   role: string
   token: string
 }): Promise<void> {
-  const acceptUrl = `${APP_URL}/register?inviteToken=${params.token}`
+  const acceptUrl = `${APP_URL}/invite/${params.token}`
 
   await sendMail({
     to: params.email,

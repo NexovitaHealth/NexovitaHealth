@@ -39,7 +39,10 @@ export const GET = withOrgAccess(async (_req, ctx, auth) => {
             physicianOrders: {
               where: { deletedAt: null },
               orderBy: { createdAt: "desc" },
-              take: 5,
+              take: 10,
+              include: {
+                physician: { select: { id: true, fullName: true } },
+              },
             },
           },
         },

@@ -30,6 +30,7 @@ import {
   formatRelative,
 } from "@/lib/utils";
 import Link from "next/link";
+import { ClinicalTabPanel } from "@/components/clinical/ClinicalTabPanel";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
@@ -258,8 +259,13 @@ export default function PatientChartPage() {
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-8">
         {activeTab === "overview" && <OverviewTab patient={patient} />}
-        {activeTab === "clinical" && (
-          <ClinicalTab carePlans={(patient as { carePlans?: unknown[] }).carePlans} />
+        {activeTab === "clinical" && orgId && (
+          <ClinicalTabPanel
+            patientId={patientId as string}
+            orgId={orgId}
+            carePlans={(patient as { carePlans?: unknown[] }).carePlans}
+            request={request}
+          />
         )}
         {activeTab === "vitals" && (
           <VitalsTab
@@ -751,68 +757,6 @@ function MedicationsTab({ medications }: { medications: any[] }) {
               )}
             </div>
           ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ClinicalTab({ carePlans }: { carePlans?: unknown[] }) {
-  const plans = (carePlans ?? []) as Array<{
-    id: string;
-    title: string;
-    version: number;
-    status: string;
-    reviewDate?: string;
-    signedBy?: { fullName: string };
-    physicianOrders?: Array<{
-      id: string;
-      title: string;
-      status: string;
-      orderType: string;
-    }>;
-  }>;
-
-  if (plans.length === 0) {
-    return (
-      <p className="text-sm text-slate-500">No active care plan on file.</p>
-    );
-  }
-
-  const plan = plans[0];
-
-  return (
-    <div className="space-y-6 max-w-3xl">
-      <div className="card p-5">
-        <h3 className="font-semibold text-slate-800 mb-2">{plan.title}</h3>
-        <p className="text-sm text-slate-500">
-          Version {plan.version} · {plan.status}
-          {plan.signedBy && ` · Signed by ${plan.signedBy.fullName}`}
-        </p>
-        {plan.reviewDate && (
-          <p className="text-xs text-slate-400 mt-1">
-            Review due {formatDate(plan.reviewDate)}
-          </p>
-        )}
-      </div>
-      {plan.physicianOrders && plan.physicianOrders.length > 0 && (
-        <div className="card p-5">
-          <h3 className="font-semibold text-slate-800 mb-3 text-sm">
-            Physician orders
-          </h3>
-          <ul className="space-y-2">
-            {plan.physicianOrders.map((order) => (
-              <li
-                key={order.id}
-                className="flex justify-between text-sm border-b border-slate-50 pb-2"
-              >
-                <span className="font-medium text-slate-800">{order.title}</span>
-                <span className="text-slate-500 capitalize">
-                  {order.orderType} · {order.status}
-                </span>
-              </li>
-            ))}
-          </ul>
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
@@ -19,6 +19,21 @@ export default function RegisterPage() {
     inviteToken: "",
     hasInvite: false,
   });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inviteToken = params.get("inviteToken");
+    const email = params.get("email");
+    if (inviteToken) {
+      setForm((prev) => ({
+        ...prev,
+        inviteToken,
+        hasInvite: true,
+        email: email || prev.email,
+      }));
+      setStep("account");
+    }
+  }, []);
 
   const set =
     (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,7 +81,7 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
-      router.push("/login?registered=1");
+      router.push(form.hasInvite ? "/dashboard" : "/login?registered=1");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

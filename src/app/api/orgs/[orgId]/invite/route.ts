@@ -78,7 +78,7 @@ export const POST = withOrgAccess(async (req, _ctx, auth) => {
       req,
     });
 
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/register?inviteToken=${invitation.token}`;
+    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/invite/${invitation.token}`;
 
     await sendInvitationEmail({
       email: invitation.email,

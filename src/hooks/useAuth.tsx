@@ -27,7 +27,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   activeOrg: User["orgMemberships"][0] | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, redirectTo?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   setActiveOrg: (orgId: string) => void;
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, redirectTo?: string) => {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         (m: User["orgMemberships"][0]) => m.isPrimary,
       ) || data.data.user.orgMemberships[0];
     if (primary) setActiveOrgId(primary.orgId);
-    router.push("/dashboard");
+    router.push(redirectTo || "/dashboard");
   };
 
   const logout = async () => {

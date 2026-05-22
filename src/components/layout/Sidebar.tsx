@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   AlertTriangle,
   FileWarning,
+  FileSignature,
   Settings,
   Bell,
   Activity,
@@ -62,6 +63,17 @@ export function Sidebar() {
       label: "Visit Review",
       icon: ClipboardCheck,
       roles: ["agency_admin", "supervisor", "physician"],
+    },
+    {
+      href: `/physician-orders`,
+      label: "Physician Orders",
+      icon: FileSignature,
+      roles: [
+        "agency_admin",
+        "supervisor",
+        "physician",
+        "physician_independent",
+      ],
     },
     {
       href: `/escalations`,
