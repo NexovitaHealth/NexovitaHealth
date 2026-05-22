@@ -15,6 +15,7 @@ import {
   getOrgPatientOrThrow,
 } from "@/lib/visits";
 import { getPagination } from "@/lib/pagination";
+import { processMissedVisitsForOrg } from "@/lib/missed-visits";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,8 @@ const createVisitSchema = z.object({
 
 export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
+    await processMissedVisitsForOrg(auth.orgId!);
+
     const { skip, take, page, pageSize } = getPagination(req, 50);
     const status = req.nextUrl.searchParams.get("status") || undefined;
     const staffId = req.nextUrl.searchParams.get("staffId") || undefined;

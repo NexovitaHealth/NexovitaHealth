@@ -15,6 +15,8 @@ import {
   Activity,
   FileText,
   Calendar,
+  CalendarCheck,
+  DollarSign,
   Heart,
   UserCheck,
   LogOut,
@@ -50,6 +52,12 @@ export function Sidebar() {
     { href: `/tasks`, label: "Tasks", icon: ClipboardList },
     { href: `/schedule`, label: "Schedule", icon: Calendar },
     {
+      href: `/my-visits`,
+      label: "My Visits",
+      icon: CalendarCheck,
+      roles: ["aide", "school_nurse"],
+    },
+    {
       href: `/visit-review`,
       label: "Visit Review",
       icon: ClipboardCheck,
@@ -83,6 +91,12 @@ export function Sidebar() {
     { href: `/labs`, label: "Lab Results", icon: FlaskConical },
     { href: `/messages`, label: "Messages", icon: MessageSquare },
     { href: `/notifications`, label: "Notifications", icon: Bell },
+    {
+      href: `/billing`,
+      label: "Billing",
+      icon: DollarSign,
+      roles: ["agency_admin", "billing_manager"],
+    },
     {
       href: `/reports`,
       label: "Reports",

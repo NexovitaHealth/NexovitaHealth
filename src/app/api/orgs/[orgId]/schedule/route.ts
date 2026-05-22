@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withOrgAccess } from "@/lib/middleware";
 import { prisma } from "@/lib/prisma";
 import { success, serverError } from "@/lib/api-response";
+import { processMissedVisitsForOrg } from "@/lib/missed-visits";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
     const { orgId } = auth;
     if (!orgId) return NextResponse.json({ error: "No org" }, { status: 400 });
+
+    await processMissedVisitsForOrg(orgId);
 
     const { searchParams } = req.nextUrl;
     const startDate = searchParams.get("startDate");

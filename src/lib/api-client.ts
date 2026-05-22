@@ -447,6 +447,10 @@ export function orgApi(orgId: string) {
           notes?: string;
         },
       ) => patch<any>(`${orgBase}/visits/${visitId}/tasks/${taskId}`, data),
+      processMissed: () =>
+        post<{ marked: number; visitIds: string[] }>(
+          `${orgBase}/visits/process-missed`,
+        ),
     },
     review: {
       visits: (params?: {
@@ -464,6 +468,45 @@ export function orgApi(orgId: string) {
           billingHoldReason?: string;
         },
       ) => patch<any>(`${orgBase}/review/visits/${visitId}`, data),
+    },
+    authorisations: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        patientId?: string;
+        status?: string;
+      }) => get<any[]>(`${orgBase}/authorisations${query(params)}`),
+      get: (authorisationId: string) =>
+        get<any>(`${orgBase}/authorisations/${authorisationId}`),
+      create: (data: {
+        patientId: string;
+        payerName: string;
+        authorisationNumber: string;
+        startDate: string;
+        endDate: string;
+        unitsAuthorised: number;
+        payerType?: string;
+        serviceCode?: string;
+        status?: "active" | "pending" | "exhausted" | "expired" | "cancelled";
+        unitType?: string;
+        notes?: string;
+      }) => post<any>(`${orgBase}/authorisations`, data),
+      update: (
+        authorisationId: string,
+        data: {
+          payerName?: string;
+          payerType?: string | null;
+          serviceCode?: string | null;
+          status?: "active" | "pending" | "exhausted" | "expired" | "cancelled";
+          startDate?: string;
+          endDate?: string;
+          unitsAuthorised?: number;
+          unitType?: string;
+          notes?: string | null;
+        },
+      ) => patch<any>(`${orgBase}/authorisations/${authorisationId}`, data),
+      delete: (authorisationId: string) =>
+        del<any>(`${orgBase}/authorisations/${authorisationId}`),
     },
     billing: {
       queue: (params?: { page?: number; pageSize?: number }) =>
