@@ -186,6 +186,37 @@ export function orgApi(orgId: string) {
           }>
         >(`${orgBase}/branches`),
     },
+    search: (params: { q: string; limit?: number; assignedToMe?: boolean }) =>
+      get<{
+        query: string;
+        patients: Array<{
+          type: "patient";
+          id: string;
+          fullName: string;
+          status: string;
+          primaryDiagnosis: string | null;
+          city: string | null;
+        }>;
+        tasks: Array<{
+          type: "task";
+          id: string;
+          title: string;
+          status: string;
+          priority: string;
+          patientName: string | null;
+          dueDate: string | null;
+        }>;
+        messages: Array<{
+          type: "message";
+          threadId: string;
+          subject: string | null;
+          patientName: string | null;
+          snippet: string;
+          updatedAt: string;
+        }>;
+        totals: { patients: number; tasks: number; messages: number };
+        permissions: { patients: boolean; tasks: boolean; messages: boolean };
+      }>(`${orgBase}/search${query(params)}`),
     carePlans: {
       list: (params?: {
         page?: number;

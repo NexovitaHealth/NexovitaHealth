@@ -76,6 +76,11 @@ export default function MessagesPage() {
     };
   }, [searchParams, orgId, request]);
 
+  useEffect(() => {
+    const threadId = searchParams.get("threadId");
+    if (threadId) setSelectedThread(threadId);
+  }, [searchParams]);
+
   const { data: threadsData, isLoading: threadsLoading } = useQuery({
     queryKey: ["message-threads", orgId],
     queryFn: () => request("/api/orgs/{orgId}/messages/threads"),

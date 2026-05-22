@@ -1,10 +1,12 @@
 "use client";
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { UniversalSearch } from "@/components/search/UniversalSearch";
+import { PatientListFilters } from "@/components/patients/PatientListFilters";
 
 async function fetchUnreadCount() {
   const res = await fetch("/api/notifications?pageSize=1&isRead=false", {
@@ -14,10 +16,10 @@ async function fetchUnreadCount() {
   return parseInt(res.headers.get("X-Notification-Unread-Count") || "0", 10);
 }
 
-export function TopBar() {
+function TopBarContent() {
   const { user } = useAuth();
-  const router = useRouter();
-  const [search, setSearch] = useState("");
+  const pathname = usePathname();
+  const isPatientsPage = pathname === "/patients";
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["notification-unread"],
@@ -25,27 +27,25 @@ export function TopBar() {
     refetchInterval: 60_000,
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const q = search.trim();
-    if (q) router.push(`/patients?search=${encodeURIComponent(q)}`);
-    else router.push("/patients");
-  };
-
   return (
-    <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 flex-shrink-0">
-      <form onSubmit={handleSearch} className="relative w-80">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search patients..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#028090]/20 focus:border-[#028090] focus:bg-white transition-all"
+    <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 flex-shrink-0 gap-4">
+      <div className="flex flex-1 min-w-0 items-center gap-3">
+        <UniversalSearch
+          className={
+            isPatientsPage
+              ? "relative flex-1 min-w-0 max-w-md"
+              : "relative w-80 shrink-0"
+          }
         />
-      </form>
+        {isPatientsPage && (
+          <PatientListFilters
+            className="hidden md:flex items-center gap-3 shrink-0"
+            selectClassName="input-base w-36 text-sm py-2"
+          />
+        )}
+      </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <Link
           href="/notifications"
           className="relative p-2 rounded-xl hover:bg-slate-50 transition-colors"
@@ -65,7 +65,7 @@ export function TopBar() {
               {user?.fullName?.charAt(0)}
             </span>
           </div>
-          <div>
+          <div className="hidden sm:block">
             <p className="text-xs font-semibold text-slate-800">
               {user?.fullName?.split(" ")[0]}
             </p>
@@ -76,5 +76,13 @@ export function TopBar() {
         </div>
       </div>
     </header>
+  );
+}
+
+export function TopBar() {
+  return (
+    <Suspense fallback={<header className="h-16 bg-white border-b border-slate-100" />}>
+      <TopBarContent />
+    </Suspense>
   );
 }

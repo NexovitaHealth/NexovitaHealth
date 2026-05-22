@@ -14,14 +14,13 @@ import { usePermissions } from "@/hooks/usePermissions";
 import {
   Users,
   Plus,
-  Search,
   AlertTriangle,
   ChevronRight,
-  Filter,
 } from "lucide-react";
 import { riskColor, statusColor, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { NewPatientModal } from "@/components/patients/NewPatientModal";
+import { PatientListFilters } from "@/components/patients/PatientListFilters";
 
 function PatientsPageContent() {
   const router = useRouter();
@@ -30,7 +29,10 @@ function PatientsPageContent() {
   const { request } = useApi();
   const { user } = useAuth();
   const { can } = usePermissions();
-  const [search, setSearch] = useState("");
+
+  const search = searchParams.get("search") ?? "";
+  const statusFilter = searchParams.get("status") ?? "";
+  const riskFilter = searchParams.get("riskLevel") ?? "";
 
   const physicianMode =
     isPhysicianPortalRole(user?.role) || can("physician:portal");
@@ -50,8 +52,8 @@ function PatientsPageContent() {
 
   const applyCaseloadScope = (scope: PatientCaseloadScope) => {
     setCaseloadScope(scope);
-    setPage(1);
     const next = new URLSearchParams(searchParams.toString());
+    next.delete("page");
     if (physicianMode) {
       if (scope === "all") next.set("assignedToMe", "false");
       else next.delete("assignedToMe");
@@ -64,14 +66,17 @@ function PatientsPageContent() {
     router.replace(q ? `/patients?${q}` : "/patients", { scroll: false });
   };
 
-  useEffect(() => {
-    const q = searchParams.get("search");
-    if (q) setSearch(q);
-  }, [searchParams]);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [riskFilter, setRiskFilter] = useState("");
   const [showNew, setShowNew] = useState(false);
-  const [page, setPage] = useState(1);
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+
+  const setPage = (next: number | ((p: number) => number)) => {
+    const value = typeof next === "function" ? next(page) : next;
+    const params = new URLSearchParams(searchParams.toString());
+    if (value <= 1) params.delete("page");
+    else params.set("page", String(value));
+    const q = params.toString();
+    router.replace(q ? `/patients?${q}` : "/patients", { scroll: false });
+  };
 
   const buildListQuery = () => {
     const q = new URLSearchParams({
@@ -162,50 +167,11 @@ function PatientsPageContent() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by name, diagnosis..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="input-base pl-9"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="input-base w-36 text-sm"
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="intake">Intake</option>
-          <option value="discharged">Discharged</option>
-          <option value="on_hold">On Hold</option>
-        </select>
-        <select
-          value={riskFilter}
-          onChange={(e) => {
-            setRiskFilter(e.target.value);
-            setPage(1);
-          }}
-          className="input-base w-36 text-sm"
-        >
-          <option value="">All Risk</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-      </div>
+      {/* Mobile filters — desktop filters live in TopBar */}
+      <PatientListFilters
+        className="flex flex-col gap-3 md:hidden"
+        selectClassName="input-base w-full text-sm"
+      />
 
       {/* Patient Table */}
       <div className="card overflow-hidden">
