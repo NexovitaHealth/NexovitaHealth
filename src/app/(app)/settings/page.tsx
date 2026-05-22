@@ -23,6 +23,13 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [passwordForm, setPasswordForm] = useState({
+    current: "",
+    next: "",
+    confirm: "",
+  });
+  const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   const [profile, setProfile] = useState({
     fullName: user?.fullName || "",
@@ -523,10 +530,48 @@ export default function SettingsPage() {
 
           {activeTab === "security" && (
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <form
+                className="bg-white rounded-2xl border border-slate-200 p-6"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setPasswordMsg(null);
+                  if (passwordForm.next !== passwordForm.confirm) {
+                    setPasswordMsg("New passwords do not match");
+                    return;
+                  }
+                  setPasswordSaving(true);
+                  try {
+                    const res = await fetch("/api/auth/change-password", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        currentPassword: passwordForm.current,
+                        newPassword: passwordForm.next,
+                      }),
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error || "Update failed");
+                    setPasswordForm({ current: "", next: "", confirm: "" });
+                    setPasswordMsg("Password updated");
+                  } catch (err) {
+                    setPasswordMsg(
+                      err instanceof Error ? err.message : "Update failed",
+                    );
+                  } finally {
+                    setPasswordSaving(false);
+                  }
+                }}
+              >
                 <h2 className="text-base font-bold text-slate-900 mb-5">
                   Change Password
                 </h2>
+                {passwordMsg && (
+                  <p
+                    className={`text-sm mb-4 ${passwordMsg === "Password updated" ? "text-emerald-600" : "text-red-600"}`}
+                  >
+                    {passwordMsg}
+                  </p>
+                )}
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -534,7 +579,11 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="password"
-                      placeholder="••••••••"
+                      required
+                      value={passwordForm.current}
+                      onChange={(e) =>
+                        setPasswordForm((p) => ({ ...p, current: e.target.value }))
+                      }
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
                     />
                   </div>
@@ -544,7 +593,12 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="password"
-                      placeholder="Min. 8 characters"
+                      required
+                      minLength={8}
+                      value={passwordForm.next}
+                      onChange={(e) =>
+                        setPasswordForm((p) => ({ ...p, next: e.target.value }))
+                      }
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
                     />
                   </div>
@@ -554,12 +608,26 @@ export default function SettingsPage() {
                     </label>
                     <input
                       type="password"
-                      placeholder="••••••••"
+                      required
+                      value={passwordForm.confirm}
+                      onChange={(e) =>
+                        setPasswordForm((p) => ({
+                          ...p,
+                          confirm: e.target.value,
+                        }))
+                      }
                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
                     />
                   </div>
                 </div>
-              </div>
+                <button
+                  type="submit"
+                  disabled={passwordSaving}
+                  className="mt-5 px-4 py-2 rounded-xl bg-[#028090] text-white text-sm font-medium disabled:opacity-50"
+                >
+                  {passwordSaving ? "Updating…" : "Update password"}
+                </button>
+              </form>
               <div className="bg-white rounded-2xl border border-slate-200 p-6">
                 <h2 className="text-base font-bold text-slate-900 mb-1">
                   Active Sessions

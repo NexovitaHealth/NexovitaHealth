@@ -182,7 +182,7 @@ export default function MyVisitsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-8 max-w-2xl mx-auto">
+    <div className="p-4 sm:p-8 pb-[max(2rem,env(safe-area-inset-bottom))] max-w-2xl mx-auto min-h-[100dvh]">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -263,7 +263,7 @@ export default function MyVisitsPage() {
                   type="button"
                   disabled={loadingGeo || checkInMutation.isPending}
                   onClick={() => checkInMutation.mutate(selected.id)}
-                  className="w-full py-3 rounded-xl bg-[#028090] text-white font-medium flex items-center justify-center gap-2"
+                  className="w-full py-4 min-h-[48px] rounded-xl bg-[#028090] text-white font-medium flex items-center justify-center gap-2 text-base"
                 >
                   <MapPin className="w-4 h-4" />
                   Check in (GPS)

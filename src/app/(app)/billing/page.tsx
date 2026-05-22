@@ -120,13 +120,31 @@ export default function BillingPage() {
     },
   });
 
+  const [payClaimId, setPayClaimId] = useState<string | null>(null);
+  const [paymentRef, setPaymentRef] = useState("");
+  const [paidAmount, setPaidAmount] = useState("");
+
   const updateClaimMutation = useMutation({
-    mutationFn: (payload: { id: string; status: string }) =>
+    mutationFn: (payload: {
+      id: string;
+      status: string;
+      paymentReference?: string;
+      paidAmount?: number;
+    }) =>
       request(`/api/orgs/{orgId}/billing/claims/${payload.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: payload.status }),
+        body: JSON.stringify({
+          status: payload.status,
+          paymentReference: payload.paymentReference,
+          paidAmount: payload.paidAmount,
+        }),
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["billing-claims"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["billing-claims"] });
+      setPayClaimId(null);
+      setPaymentRef("");
+      setPaidAmount("");
+    },
   });
 
   const createAuthMutation = useMutation({
@@ -289,25 +307,95 @@ export default function BillingPage() {
                       {claim.payerName}
                     </p>
                   </div>
-                  {claim.status === "queued" && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateClaimMutation.mutate({
-                          id: claim.id,
-                          status: "submitted",
-                        })
-                      }
-                      className="text-sm text-[#028090] font-medium"
-                    >
-                      Mark submitted
-                    </button>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {claim.status === "queued" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateClaimMutation.mutate({
+                            id: claim.id,
+                            status: "submitted",
+                          })
+                        }
+                        className="text-sm text-[#028090] font-medium"
+                      >
+                        Mark submitted
+                      </button>
+                    )}
+                    {claim.status === "submitted" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPayClaimId(claim.id);
+                          setPaidAmount(String(claim.totalAmount ?? ""));
+                        }}
+                        className="text-sm text-emerald-700 font-medium"
+                      >
+                        Record payment
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </>
+      )}
+
+      {payClaimId && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+          <form
+            className="bg-white rounded-2xl p-6 w-full max-w-md space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              updateClaimMutation.mutate({
+                id: payClaimId,
+                status: "paid",
+                paymentReference: paymentRef || undefined,
+                paidAmount: Number.parseFloat(paidAmount) || undefined,
+              });
+            }}
+          >
+            <h3 className="font-semibold text-slate-900">Record payment</h3>
+            <label className="block text-sm">
+              Payment reference
+              <input
+                value={paymentRef}
+                onChange={(e) => setPaymentRef(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+                placeholder="Check # or ERA id"
+              />
+            </label>
+            <label className="block text-sm">
+              Amount paid
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                required
+                value={paidAmount}
+                onChange={(e) => setPaidAmount(e.target.value)}
+                className="mt-1 w-full border rounded-lg px-3 py-2"
+              />
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setPayClaimId(null)}
+                className="px-3 py-2 text-sm border rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updateClaimMutation.isPending}
+                className="px-3 py-2 text-sm bg-[#028090] text-white rounded-lg"
+              >
+                Mark paid
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {tab === "authorisations" && (

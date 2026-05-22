@@ -22,6 +22,8 @@ export const dynamic = "force-dynamic";
 const updateClaimSchema = z.object({
   status: z.enum(["queued", "submitted", "paid", "denied", "voided"]).optional(),
   denialReason: z.string().max(1000).optional(),
+  paymentReference: z.string().max(200).optional(),
+  paidAmount: z.number().min(0).optional(),
   metadata: z.record(z.unknown()).optional(),
 });
 
@@ -86,13 +88,32 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
         });
       }
 
+      const nextStatus = parsed.data.status ?? claim.status;
+      const existingMeta =
+        claim.metadata && typeof claim.metadata === "object"
+          ? (claim.metadata as Record<string, unknown>)
+          : {};
+
       return tx.claim.update({
         where: { id: claim.id },
         data: {
           status: parsed.data.status,
           denialReason: parsed.data.denialReason,
-          metadata: parsed.data.metadata as Prisma.InputJsonValue | undefined,
-          ...getClaimStatusTimestamps(parsed.data.status ?? claim.status),
+          totalAmount:
+            nextStatus === "paid" && parsed.data.paidAmount !== undefined
+              ? parsed.data.paidAmount
+              : undefined,
+          metadata: {
+            ...existingMeta,
+            ...(parsed.data.metadata ?? {}),
+            ...(parsed.data.paymentReference && {
+              paymentReference: parsed.data.paymentReference,
+            }),
+            ...(parsed.data.paidAmount !== undefined && {
+              paidAmount: parsed.data.paidAmount,
+            }),
+          } as Prisma.InputJsonValue,
+          ...getClaimStatusTimestamps(nextStatus),
         },
         include: claimInclude,
       });

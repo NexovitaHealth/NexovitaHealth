@@ -1,0 +1,17 @@
+{
+  "name": "Nexovita Health",
+  "short_name": "Nexovita",
+  "description": "Home care visit and clinical management",
+  "start_url": "/my-visits",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#028090",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

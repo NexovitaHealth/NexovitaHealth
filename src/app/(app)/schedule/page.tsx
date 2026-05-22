@@ -11,6 +11,7 @@ import {
   User,
   Loader2,
   Plus,
+  Download,
 } from "lucide-react";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -113,9 +114,28 @@ export default function SchedulePage() {
             Visit calendar and care schedules
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-[#028090] hover:bg-[#026f7c] text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-          <Plus className="w-4 h-4" /> Schedule Visit
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (!orgId) return;
+              const start = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-01`;
+              const endDay = getDaysInMonth(viewYear, viewMonth);
+              const end = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`;
+              window.location.href = `/api/orgs/${orgId}/visits/evv-export?startDate=${start}&endDate=${end}`;
+            }}
+            className="flex items-center gap-2 border border-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-slate-50"
+          >
+            <Download className="w-4 h-4" /> EVV export
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-2 bg-[#028090] hover:bg-[#026f7c] text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm opacity-60 cursor-not-allowed"
+            title="Visit scheduling UI coming soon"
+          >
+            <Plus className="w-4 h-4" /> Schedule Visit
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

@@ -31,6 +31,7 @@ import {
 } from "@/lib/utils";
 import Link from "next/link";
 import { ClinicalTabPanel } from "@/components/clinical/ClinicalTabPanel";
+import { DocumentsTab } from "@/components/patients/DocumentsTab";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
@@ -39,6 +40,7 @@ const TABS = [
   { id: "medications", label: "Medications", icon: Pill },
   { id: "labs", label: "Labs", icon: FlaskConical },
   { id: "care_team", label: "Care Team", icon: Users },
+  { id: "documents", label: "Documents", icon: FileText },
   { id: "alerts", label: "Alerts", icon: AlertTriangle },
 ];
 
@@ -279,6 +281,9 @@ export default function PatientChartPage() {
           <MedicationsTab
             medications={(patient.medications ?? []) as unknown[]}
           />
+        )}
+        {activeTab === "documents" && orgId && (
+          <DocumentsTab patientId={patientId as string} orgId={orgId} />
         )}
         {activeTab === "care_team" && (
           <CareTeamTab

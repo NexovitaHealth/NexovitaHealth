@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApi } from "@/hooks/useApi";
 import { formatDate, formatRelative } from "@/lib/utils";
 import {
@@ -32,11 +32,73 @@ const STATUS_STYLES: Record<string, { color: string; icon: React.ReactNode }> =
     cancelled: { color: "bg-slate-100 text-slate-500", icon: null },
   };
 
+function parseResultLines(text: string) {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [componentName, value, unit] = line.split("|").map((s) => s.trim());
+      return {
+        componentName: componentName || "Result",
+        value: value || "",
+        unit: unit || undefined,
+      };
+    })
+    .filter((r) => r.value);
+}
+
 export default function LabsPage() {
   const { request, orgId } = useApi();
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showOrder, setShowOrder] = useState(false);
+  const [resultLines, setResultLines] = useState("");
+  const [orderForm, setOrderForm] = useState({
+    patientId: "",
+    panelName: "",
+    priority: "routine",
+  });
+
+  const { data: patientsData } = useQuery({
+    queryKey: ["patients", orgId, "labs"],
+    queryFn: () =>
+      request<{ id: string; fullName: string }[]>(
+        `/api/orgs/{orgId}/patients?pageSize=200`,
+      ),
+    enabled: !!orgId && showOrder,
+  });
+  const patients = (patientsData?.data as { id: string; fullName: string }[]) || [];
+
+  const createOrderMutation = useMutation({
+    mutationFn: () =>
+      request(`/api/orgs/{orgId}/labs`, {
+        method: "POST",
+        body: JSON.stringify(orderForm),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["labs"] });
+      setShowOrder(false);
+      setOrderForm({ patientId: "", panelName: "", priority: "routine" });
+    },
+  });
+
+  const addResultsMutation = useMutation({
+    mutationFn: (labOrderId: string) =>
+      request(`/api/orgs/{orgId}/labs/${labOrderId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          results: parseResultLines(resultLines),
+        }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["labs"] });
+      setResultLines("");
+      setExpanded(null);
+    },
+  });
 
   const params = new URLSearchParams({ limit: "50" });
   if (search) params.set("search", search);
@@ -112,6 +174,57 @@ export default function LabsPage() {
           </div>
         ))}
       </div>
+
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setShowOrder((v) => !v)}
+          className="text-sm px-3 py-2 rounded-lg bg-[#028090] text-white font-medium"
+        >
+          {showOrder ? "Cancel" : "Order lab"}
+        </button>
+      </div>
+
+      {showOrder && (
+        <form
+          className="bg-white border rounded-2xl p-5 mb-5 grid sm:grid-cols-3 gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            createOrderMutation.mutate();
+          }}
+        >
+          <select
+            required
+            value={orderForm.patientId}
+            onChange={(e) =>
+              setOrderForm((f) => ({ ...f, patientId: e.target.value }))
+            }
+            className="border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="">Patient</option>
+            {patients.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.fullName}
+              </option>
+            ))}
+          </select>
+          <input
+            required
+            placeholder="Panel name"
+            value={orderForm.panelName}
+            onChange={(e) =>
+              setOrderForm((f) => ({ ...f, panelName: e.target.value }))
+            }
+            className="border rounded-lg px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm"
+          >
+            Submit order
+          </button>
+        </form>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-4">
@@ -278,11 +391,29 @@ export default function LabsPage() {
                               ))}
                             </tbody>
                           </table>
+                        ) : lab.status === "ordered" ? (
+                          <div className="space-y-2">
+                            <p className="text-xs text-slate-500">
+                              Enter results (one per line: Component|value|unit)
+                            </p>
+                            <textarea
+                              rows={4}
+                              value={expanded === lab.id ? resultLines : ""}
+                              onChange={(e) => setResultLines(e.target.value)}
+                              className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                              placeholder="Glucose|95|mg/dL"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => addResultsMutation.mutate(lab.id)}
+                              className="text-sm px-3 py-1.5 rounded-lg bg-[#028090] text-white"
+                            >
+                              Save results
+                            </button>
+                          </div>
                         ) : (
                           <p className="text-sm text-slate-400 italic">
-                            {lab.status === "pending"
-                              ? "Results pending..."
-                              : "No result details available"}
+                            No result details available
                           </p>
                         )}
                         {lab.notes && (

@@ -7,6 +7,12 @@ export const metadata: Metadata = {
   description:
     "Comprehensive home care, hospice, and palliative care management for agencies and independent practitioners.",
   icons: { icon: "/favicon.ico" },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Nexovita",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({

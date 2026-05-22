@@ -59,6 +59,17 @@ export function Sidebar() {
       roles: ["aide", "school_nurse"],
     },
     {
+      href: `/supervisor`,
+      label: "Supervisor Panel",
+      icon: Shield,
+      roles: [
+        "agency_admin",
+        "supervisor",
+        "physician",
+        "physician_independent",
+      ],
+    },
+    {
       href: `/visit-review`,
       label: "Visit Review",
       icon: ClipboardCheck,
