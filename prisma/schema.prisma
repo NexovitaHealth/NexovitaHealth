@@ -115,6 +115,14 @@ enum PhysicianOrderStatus {
   cancelled
 }
 
+enum CarePlanStatus {
+  draft
+  active
+  superseded
+  expired
+  discontinued
+}
+
 enum VisitTaskStatus {
   pending
   in_progress
@@ -211,6 +219,8 @@ model User {
   vitalReadings     PatientVital[]  @relation("VitalRecordedBy")
   visitLogsRecorded VisitLog[]      @relation("VisitLoggedBy")
   patientsAssigned  PatientCareTeam[]
+  carePlansAuthored CarePlan[]       @relation("CarePlansAuthored")
+  carePlansSigned   CarePlan[]       @relation("CarePlansSigned")
   physicianOrders   PhysicianOrder[] @relation("PhysicianOrders")
   escalationsCreated Escalation[]    @relation("EscalationsCreated")
   escalationsAssigned Escalation[]   @relation("EscalationsAssigned")
@@ -299,6 +309,7 @@ model Organization {
   messages              Message[]
   messageThreads        MessageThread[]
   clinicalAlerts        ClinicalAlert[]
+  carePlans             CarePlan[]
   physicianOrders       PhysicianOrder[]
   escalations           Escalation[]
   visitTasks            VisitTask[]
@@ -695,26 +706,42 @@ model TaskComment {
 // CLINICAL: CARE PLANS, LABS, MEDICATIONS
 
 model CarePlan {
-  id          String   @id @default(uuid())
-  patientId   String   @map("patient_id")
-  authorId    String   @map("author_id")
+  id          String         @id @default(uuid())
+  orgId       String         @map("org_id")
+  patientId   String         @map("patient_id")
+  authorId    String         @map("author_id")
+  parentCarePlanId String?   @map("parent_care_plan_id")
   
   title       String
-  goals       Json     @default("[]")
-  interventions Json   @default("[]")
-  status      String   @default("active")
-  reviewDate  DateTime? @map("review_date")
-  approvedAt  DateTime? @map("approved_at")
-  approvedBy  String?  @map("approved_by")
+  goals       Json           @default("[]")
+  interventions Json         @default("[]")
+  status      CarePlanStatus @default(draft)
+  version     Int            @default(1)
+  startDate   DateTime?      @map("start_date")
+  reviewDate  DateTime?      @map("review_date")
+  signedAt    DateTime?      @map("signed_at")
+  signedById  String?        @map("signed_by_id")
+  signatureHash String?      @map("signature_hash")
+  signatureMeaning String?   @map("signature_meaning")
   
-  deletedAt   DateTime? @map("deleted_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime?      @map("deleted_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
 
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  org         Organization   @relation(fields: [orgId], references: [id])
+  patient     Patient        @relation(fields: [patientId], references: [id])
+  author      User           @relation("CarePlansAuthored", fields: [authorId], references: [id])
+  signedBy    User?          @relation("CarePlansSigned", fields: [signedById], references: [id])
+  parentCarePlan CarePlan?   @relation("CarePlanRenewals", fields: [parentCarePlanId], references: [id])
+  renewals    CarePlan[]     @relation("CarePlanRenewals")
   physicianOrders PhysicianOrder[]
 
+  @@index([orgId])
   @@index([patientId])
+  @@index([authorId])
+  @@index([signedById])
+  @@index([parentCarePlanId])
+  @@index([status])
   @@map("care_plans")
 }
 
@@ -820,6 +847,8 @@ model PhysicianOrder {
   effectiveAt    DateTime?            @map("effective_at")
   expiresAt      DateTime?            @map("expires_at")
   signedAt       DateTime?            @map("signed_at")
+  signatureHash  String?              @map("signature_hash")
+  signatureMeaning String?            @map("signature_meaning")
   discontinuedAt DateTime?            @map("discontinued_at")
   metadata       Json                 @default("{}")
 

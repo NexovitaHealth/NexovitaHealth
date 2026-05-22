@@ -162,6 +162,95 @@ export function orgApi(orgId: string) {
           post<any>(`${orgBase}/patients/${patientId}/vitals`, data),
       },
     },
+    carePlans: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        patientId?: string;
+        status?: string;
+      }) => get<any[]>(`${orgBase}/care-plans${query(params)}`),
+      get: (carePlanId: string) =>
+        get<any>(`${orgBase}/care-plans/${carePlanId}`),
+      create: (data: {
+        patientId: string;
+        title: string;
+        goals?: unknown[];
+        interventions?: unknown[];
+        status?: "draft" | "active";
+        startDate?: string;
+        reviewDate?: string;
+      }) => post<any>(`${orgBase}/care-plans`, data),
+      update: (
+        carePlanId: string,
+        data: {
+          title?: string;
+          goals?: unknown[];
+          interventions?: unknown[];
+          status?: "draft" | "active" | "superseded" | "expired" | "discontinued";
+          startDate?: string | null;
+          reviewDate?: string | null;
+        },
+      ) => patch<any>(`${orgBase}/care-plans/${carePlanId}`, data),
+      delete: (carePlanId: string) =>
+        del<any>(`${orgBase}/care-plans/${carePlanId}`),
+      renew: (
+        carePlanId: string,
+        data?: {
+          title?: string;
+          goals?: unknown[];
+          interventions?: unknown[];
+          startDate?: string;
+          reviewDate?: string;
+        },
+      ) => post<any>(`${orgBase}/care-plans/${carePlanId}/renew`, data),
+      sign: (
+        carePlanId: string,
+        data?: { signatureMeaning?: string },
+      ) => post<any>(`${orgBase}/care-plans/${carePlanId}/sign`, data),
+    },
+    physicianOrders: {
+      list: (params?: {
+        page?: number;
+        pageSize?: number;
+        patientId?: string;
+        physicianId?: string;
+        carePlanId?: string;
+        status?: string;
+      }) => get<any[]>(`${orgBase}/physician-orders${query(params)}`),
+      get: (orderId: string) =>
+        get<any>(`${orgBase}/physician-orders/${orderId}`),
+      create: (data: {
+        patientId: string;
+        physicianId?: string;
+        carePlanId?: string;
+        escalationId?: string;
+        orderType: string;
+        title: string;
+        instructions: string;
+        status?: "draft" | "active";
+        effectiveAt?: string;
+        expiresAt?: string;
+        metadata?: Record<string, unknown>;
+      }) => post<any>(`${orgBase}/physician-orders`, data),
+      update: (
+        orderId: string,
+        data: {
+          orderType?: string;
+          title?: string;
+          instructions?: string;
+          status?: "draft" | "active" | "completed" | "discontinued" | "cancelled";
+          effectiveAt?: string | null;
+          expiresAt?: string | null;
+          metadata?: Record<string, unknown>;
+        },
+      ) => patch<any>(`${orgBase}/physician-orders/${orderId}`, data),
+      sign: (orderId: string, data?: { signatureMeaning?: string }) =>
+        post<any>(`${orgBase}/physician-orders/${orderId}/sign`, data),
+      discontinue: (orderId: string, reason: string) =>
+        post<any>(`${orgBase}/physician-orders/${orderId}/discontinue`, {
+          reason,
+        }),
+    },
     projects: {
       list: () => get<any[]>(`${orgBase}/projects`),
       create: (data: unknown) => post<any>(`${orgBase}/projects`, data),
@@ -346,6 +435,14 @@ export const patients = {
   forOrg: (orgId: string) => orgApi(orgId).patients,
 };
 
+export const carePlans = {
+  forOrg: (orgId: string) => orgApi(orgId).carePlans,
+};
+
+export const physicianOrders = {
+  forOrg: (orgId: string) => orgApi(orgId).physicianOrders,
+};
+
 export const tasks = {
   forOrg: (orgId: string) => orgApi(orgId).tasks,
 };
@@ -399,6 +496,8 @@ export default {
   audit,
   orgSettings,
   patients,
+  carePlans,
+  physicianOrders,
   tasks,
   projects,
   messages,

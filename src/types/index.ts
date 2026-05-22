@@ -93,6 +93,13 @@ export type PhysicianOrderStatus =
   | 'discontinued'
   | 'cancelled'
 
+export type CarePlanStatus =
+  | 'draft'
+  | 'active'
+  | 'superseded'
+  | 'expired'
+  | 'discontinued'
+
 export type VisitTaskStatus =
   | 'pending'
   | 'in_progress'

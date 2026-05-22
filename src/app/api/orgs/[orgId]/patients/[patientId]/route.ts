@@ -30,7 +30,19 @@ export const GET = withOrgAccess(async (_req, ctx, auth) => {
           where: { isActive: true },
           orderBy: { createdAt: "desc" },
         },
-        carePlans: { where: { deletedAt: null, status: "active" }, take: 1 },
+        carePlans: {
+          where: { deletedAt: null, status: "active" },
+          orderBy: { version: "desc" },
+          take: 1,
+          include: {
+            signedBy: { select: { id: true, fullName: true, role: true } },
+            physicianOrders: {
+              where: { deletedAt: null },
+              orderBy: { createdAt: "desc" },
+              take: 5,
+            },
+          },
+        },
         alerts: {
           where: { isResolved: false },
           orderBy: { createdAt: "desc" },
