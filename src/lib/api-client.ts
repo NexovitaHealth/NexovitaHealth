@@ -400,6 +400,18 @@ export function orgApi(orgId: string) {
       list: (params?: { search?: string; status?: string; limit?: number }) =>
         get<any[]>(`${orgBase}/labs${query(params)}`),
     },
+    dashboard: {
+      summary: () =>
+        get<{
+          totalPatients: number;
+          highRiskPatients: number;
+          openTasks: number;
+          unresolvedAlerts: number;
+          visitsToday: number;
+          pendingVisitReviews: number;
+          missedVisitsToday: number;
+        }>(`${orgBase}/dashboard`),
+    },
     schedule: {
       list: (params?: { startDate?: string; endDate?: string }) =>
         get<any[]>(`${orgBase}/schedule${query(params)}`),

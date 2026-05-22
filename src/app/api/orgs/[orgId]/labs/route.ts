@@ -5,13 +5,17 @@ import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import {
   created,
-  error,
   notFound,
   serverError,
   success,
   validationError,
 } from "@/lib/api-response";
 import { getOrgPatientOrThrow } from "@/lib/visits";
+import {
+  labOrderInclude,
+  orgLabWhere,
+  shapeLabOrderForApi,
+} from "@/lib/labs";
 
 export const dynamic = "force-dynamic";
 
@@ -24,102 +28,31 @@ const createLabSchema = z.object({
 
 export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    const orgId = auth.orgId!;
-
     const { searchParams } = req.nextUrl;
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status") || "";
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const limit = Math.min(
+      parseInt(searchParams.get("limit") || "50", 10),
+      200,
+    );
 
-    // Get all patients in this org first
-    const patients = await prisma.patient.findMany({
-      where: { orgId, status: "active", deletedAt: null },
-      select: { id: true },
-    });
-    const patientIds = patients.map((p: { id: string }) => p.id);
-
-    const where: Record<string, unknown> = {
-      patientId: { in: patientIds },
+    const where = {
+      ...orgLabWhere(auth.orgId!),
+      ...(status && { status }),
+      ...(search && {
+        panelName: { contains: search, mode: "insensitive" as const },
+      }),
     };
-    if (status) where.status = status;
-    if (search) {
-      where.panelName = { contains: search, mode: "insensitive" };
-    }
 
     const labs = await prisma.labOrder.findMany({
       where,
-      include: {
-        patient: { select: { id: true, fullName: true } },
-        results: {
-          select: {
-            id: true,
-            componentName: true,
-            value: true,
-            unit: true,
-            referenceMin: true,
-            referenceMax: true,
-            isAbnormal: true,
-            isCritical: true,
-          },
-        },
-      },
+      include: labOrderInclude,
       orderBy: { createdAt: "desc" },
       take: limit,
     });
 
-    // Shape results for frontend
-    const shaped = labs.map((lab: (typeof labs)[0]) => ({
-      ...lab,
-      testName: lab.panelName,
-      orderedAt: lab.createdAt,
-      resultDate: lab.resultedAt,
-      criticalValues:
-        lab.results
-          .filter(
-            (r: {
-              isCritical: boolean;
-              componentName: string;
-              value: string;
-              unit: string | null;
-            }) => r.isCritical,
-          )
-          .map(
-            (r: {
-              componentName: string;
-              value: string;
-              unit: string | null;
-              referenceMin: string | null;
-              referenceMax: string | null;
-              isAbnormal: boolean;
-              isCritical: boolean;
-              id: string;
-            }) => `${r.componentName}: ${r.value} ${r.unit}`,
-          )
-          .join(", ") || null,
-      results: lab.results.map(
-        (r: {
-          componentName: string;
-          value: string;
-          unit: string | null;
-          referenceMin: string | null;
-          referenceMax: string | null;
-          isAbnormal: boolean;
-        }) => ({
-          component: r.componentName,
-          value: r.value,
-          unit: r.unit || "",
-          referenceRange:
-            r.referenceMin && r.referenceMax
-              ? `${r.referenceMin} – ${r.referenceMax}`
-              : undefined,
-          isAbnormal: r.isAbnormal,
-        }),
-      ),
-    }));
-
-    return success(shaped);
+    return success(labs.map(shapeLabOrderForApi));
   } catch (err) {
-    console.error(err);
     return serverError(err);
   }
 });
@@ -144,10 +77,7 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
         notes: parsed.data.notes,
         status: "ordered",
       },
-      include: {
-        patient: { select: { id: true, fullName: true } },
-        results: true,
-      },
+      include: labOrderInclude,
     });
 
     await createAuditLog({
@@ -161,11 +91,7 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
       req,
     });
 
-    return created({
-      ...order,
-      testName: order.panelName,
-      orderedAt: order.createdAt,
-    });
+    return created(shapeLabOrderForApi(order));
   } catch (err) {
     if (err instanceof Error && err.message === "PATIENT_NOT_FOUND") {
       return notFound("Patient");

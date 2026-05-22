@@ -50,9 +50,24 @@ export default function DashboardPage() {
   const { user, activeOrg } = useAuth();
   const { request, orgId } = useApi();
 
+  const { data: summaryData } = useQuery({
+    queryKey: ["dashboard", orgId, "summary"],
+    queryFn: () =>
+      request<{
+        totalPatients: number;
+        highRiskPatients: number;
+        openTasks: number;
+        unresolvedAlerts: number;
+        visitsToday: number;
+        pendingVisitReviews: number;
+        missedVisitsToday: number;
+      }>(`/api/orgs/{orgId}/dashboard`),
+    enabled: !!orgId,
+  });
+
   const { data: patientsData } = useQuery({
-    queryKey: ["patients", orgId],
-    queryFn: () => request<any>(`/api/orgs/${orgId}/patients?pageSize=5`),
+    queryKey: ["patients", orgId, "recent"],
+    queryFn: () => request<any>(`/api/orgs/{orgId}/patients?pageSize=5`),
     enabled: !!orgId,
   });
 
@@ -60,17 +75,18 @@ export default function DashboardPage() {
     queryKey: ["tasks", orgId, "recent"],
     queryFn: () =>
       request<any>(
-        `/api/orgs/${orgId}/tasks?pageSize=5&sortBy=createdAt&sortOrder=desc`,
+        `/api/orgs/{orgId}/tasks?pageSize=5&sortBy=createdAt&sortOrder=desc`,
       ),
     enabled: !!orgId,
   });
 
+  const summary = summaryData?.data;
   const patients = (patientsData?.data as unknown[]) || [];
   const tasks = (tasksData?.data as unknown[]) || [];
-  const totalPatients = patientsData?.pagination?.total || 0;
-  const highRisk = patients.filter(
-    (p: any) => p.riskLevel === "high" || p.riskLevel === "critical",
-  ).length;
+  const totalPatients = summary?.totalPatients ?? 0;
+  const highRisk = summary?.highRiskPatients ?? 0;
+  const openTasks = summary?.openTasks ?? 0;
+  const unresolvedAlerts = summary?.unresolvedAlerts ?? 0;
 
   const hour = new Date().getHours();
   const greeting =
@@ -115,21 +131,37 @@ export default function DashboardPage() {
         <StatCard
           icon={ClipboardList}
           label="Open Tasks"
-          value={tasks.filter((t: any) => t.status !== "completed").length}
-          trend="This week"
+          value={openTasks}
+          trend="Org-wide open"
           color="bg-amber-50 text-amber-600"
         />
         <StatCard
           icon={Activity}
           label="Alerts"
-          value={patients.reduce(
-            (a: number, p: any) => a + (p._count?.alerts || 0),
-            0,
-          )}
-          trend="Unresolved"
+          value={unresolvedAlerts}
+          trend="Unresolved clinical alerts"
           color="bg-emerald-50 text-emerald-600"
         />
       </div>
+
+      {summary && (
+        <div className="flex flex-wrap gap-4 text-sm text-slate-600 -mt-4">
+          <span className="flex items-center gap-1.5">
+            <Calendar className="w-4 h-4 text-[#028090]" />
+            {summary.visitsToday} visits today
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-amber-600" />
+            {summary.pendingVisitReviews} pending reviews
+          </span>
+          {summary.missedVisitsToday > 0 && (
+            <span className="flex items-center gap-1.5 text-red-600">
+              <AlertTriangle className="w-4 h-4" />
+              {summary.missedVisitsToday} missed today
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Main content */}
       <div className="grid grid-cols-3 gap-6">

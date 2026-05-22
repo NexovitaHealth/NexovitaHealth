@@ -3,14 +3,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createAuditLog } from "@/lib/audit";
 import {
-  error,
   notFound,
   serverError,
   success,
   validationError,
 } from "@/lib/api-response";
 import { withOrgAccess } from "@/lib/middleware";
-import { getOrgPatientOrThrow } from "@/lib/visits";
+import { getOrgLabOrderOrThrow, labOrderInclude } from "@/lib/labs";
 
 export const dynamic = "force-dynamic";
 
@@ -32,19 +31,10 @@ const addResultsSchema = z.object({
 
 export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
-    const patients = await prisma.patient.findMany({
-      where: { orgId: auth.orgId!, deletedAt: null },
-      select: { id: true },
-    });
-    const patientIds = patients.map((p) => p.id);
-
-    const order = await prisma.labOrder.findFirst({
-      where: {
-        id: ctx.params.labOrderId,
-        patientId: { in: patientIds },
-      },
-    });
-    if (!order) return notFound("Lab order");
+    const order = await getOrgLabOrderOrThrow(
+      auth.orgId!,
+      ctx.params.labOrderId,
+    );
 
     const body = await req.json();
     const parsed = addResultsSchema.safeParse(body);
@@ -73,10 +63,7 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
           notes: parsed.data.notes ?? order.notes,
           resultedAt: new Date(),
         },
-        include: {
-          patient: { select: { id: true, fullName: true } },
-          results: true,
-        },
+        include: labOrderInclude,
       });
     });
 
@@ -87,12 +74,18 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
       resourceType: "lab_order",
       resourceId: order.id,
       patientId: order.patientId,
-      metadata: { status: updated.status, resultCount: parsed.data.results.length },
+      metadata: {
+        status: updated.status,
+        resultCount: parsed.data.results.length,
+      },
       req,
     });
 
     return success(updated);
   } catch (err) {
+    if (err instanceof Error && err.message === "LAB_ORDER_NOT_FOUND") {
+      return notFound("Lab order");
+    }
     return serverError(err);
   }
 });
