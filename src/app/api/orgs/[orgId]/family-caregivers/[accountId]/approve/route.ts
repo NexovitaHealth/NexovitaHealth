@@ -20,7 +20,7 @@ export const PATCH = withOrgAccess(
   async (req: NextRequest, ctx, auth) => {
     try {
       try {
-        assertFamilyCaregiverManager(auth.user.role, auth.orgRole);
+        assertFamilyCaregiverManager(auth);
       } catch {
         return error("Insufficient permissions to approve family caregivers", 403);
       }

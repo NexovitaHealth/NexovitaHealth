@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { ClaimStatus, Prisma, VisitReviewStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import type { AuthContext } from "@/lib/middleware";
+import {
+  assertBillingAccess,
+  assertClinicalReviewAccess,
+} from "@/lib/rbac";
 
 export type ReviewDecisionInput = {
   status: Exclude<VisitReviewStatus, "pending">;
@@ -24,16 +29,34 @@ export function makeClaimNumber() {
   return `CLM-${date}-${randomUUID().slice(0, 8).toUpperCase()}`;
 }
 
-export function assertClinicalReviewer(role: string) {
-  if (!["agency_admin", "supervisor", "physician"].includes(role)) {
-    throw new Error("REVIEW_FORBIDDEN");
+/** @deprecated Prefer assertClinicalReviewAccess(auth) */
+export function assertClinicalReviewer(
+  auth: Pick<AuthContext, "user" | "orgRole"> | string,
+) {
+  if (typeof auth === "string") {
+    if (
+      !["agency_admin", "supervisor", "physician", "physician_independent"].includes(
+        auth,
+      )
+    ) {
+      throw new Error("REVIEW_FORBIDDEN");
+    }
+    return;
   }
+  assertClinicalReviewAccess(auth);
 }
 
-export function assertBillingUser(role: string) {
-  if (!["agency_admin", "billing_manager"].includes(role)) {
-    throw new Error("BILLING_FORBIDDEN");
+/** @deprecated Prefer assertBillingAccess(auth) */
+export function assertBillingUser(
+  auth: Pick<AuthContext, "user" | "orgRole"> | string,
+) {
+  if (typeof auth === "string") {
+    if (!["agency_admin", "billing_manager"].includes(auth)) {
+      throw new Error("BILLING_FORBIDDEN");
+    }
+    return;
   }
+  assertBillingAccess(auth);
 }
 
 export async function ensurePendingReviewForVisit(

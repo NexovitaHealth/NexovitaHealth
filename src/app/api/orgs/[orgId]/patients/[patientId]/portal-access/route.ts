@@ -19,7 +19,7 @@ export const POST = withOrgAccess(
   async (req: NextRequest, ctx, auth) => {
     try {
       try {
-        assertFamilyCaregiverManager(auth.user.role, auth.orgRole);
+        assertFamilyCaregiverManager(auth);
       } catch {
         return error("Insufficient permissions to issue patient portal access", 403);
       }

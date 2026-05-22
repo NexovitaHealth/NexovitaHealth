@@ -1,25 +1,42 @@
 import type { PayerAuthorisationStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getOrgPatientOrThrow } from "@/lib/visits";
+import type { AuthContext } from "@/lib/middleware";
+import {
+  assertAuthorisationManageAccess,
+  assertAuthorisationReadAccess,
+} from "@/lib/rbac";
 
 export const authorisationInclude = {
   patient: { select: { id: true, fullName: true, insuranceProvider: true } },
 } satisfies Prisma.PayerAuthorisationInclude;
 
-export function assertPayerAuthManager(role: string) {
-  if (!["agency_admin", "billing_manager"].includes(role)) {
-    throw new Error("PAYER_AUTH_FORBIDDEN");
+export function assertPayerAuthManager(
+  auth: Pick<AuthContext, "user" | "orgRole"> | string,
+) {
+  if (typeof auth === "string") {
+    if (!["agency_admin", "billing_manager"].includes(auth)) {
+      throw new Error("PAYER_AUTH_FORBIDDEN");
+    }
+    return;
   }
+  assertAuthorisationManageAccess(auth);
 }
 
-export function assertPayerAuthReader(role: string) {
-  if (
-    !["agency_admin", "billing_manager", "supervisor", "superadmin"].includes(
-      role,
-    )
-  ) {
-    throw new Error("PAYER_AUTH_FORBIDDEN");
+export function assertPayerAuthReader(
+  auth: Pick<AuthContext, "user" | "orgRole"> | string,
+) {
+  if (typeof auth === "string") {
+    if (
+      !["agency_admin", "billing_manager", "supervisor", "superadmin"].includes(
+        auth,
+      )
+    ) {
+      throw new Error("PAYER_AUTH_FORBIDDEN");
+    }
+    return;
   }
+  assertAuthorisationReadAccess(auth);
 }
 
 export async function syncExpiredAuthorisations(

@@ -1,21 +1,15 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withOrgAccess } from "@/lib/middleware";
-import { paginated, serverError, forbidden } from "@/lib/api-response";
+import { paginated, serverError } from "@/lib/api-response";
 import type { AuditAction } from "@/types";
 import { getPagination } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withOrgAccess(async (req, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req, _ctx, auth) => {
   try {
-    const isAdminLevel =
-      auth.user.role === "agency_admin" ||
-      auth.user.role === "superadmin" ||
-      ["agency_admin", "supervisor"].includes(auth.orgRole || "") ||
-      ["agency_admin", "supervisor"].includes(auth.orgRole || "");
-    if (!isAdminLevel) return forbidden("Audit logs are restricted to admins");
-
     const { skip, take, page, pageSize } = getPagination(req, 50);
     const resourceType =
       req.nextUrl.searchParams.get("resourceType") || undefined;
@@ -68,4 +62,6 @@ export const GET = withOrgAccess(async (req, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+},
+  { permission: "audit:read" },
+);

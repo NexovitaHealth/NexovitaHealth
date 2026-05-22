@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSessionFromRequest } from './auth'
 import { forbidden, unauthorized } from './api-response'
+import { canUserPerform, type Permission } from './permissions'
 import { UserRole, OrgRole } from '@/types'
 
 export type AuthenticatedHandler = (
@@ -86,9 +87,14 @@ export function withAuth(
 /**
  * withOrgAccess - ensures user is a member of the org
  */
+export type OrgAccessOptions = {
+  requiredOrgRoles?: OrgRole[]
+  permission?: Permission
+}
+
 export function withOrgAccess(
   handler: (req: NextRequest, ctx: RouteContext, auth: AuthContext) => Promise<NextResponse>,
-  options?: { requiredOrgRoles?: OrgRole[] }
+  options?: OrgAccessOptions,
 ) {
   return withAuth(async (req, ctx, auth) => {
     if (!auth.orgId) {
@@ -96,6 +102,12 @@ export function withOrgAccess(
     }
     if (options?.requiredOrgRoles && auth.orgRole && !options.requiredOrgRoles.includes(auth.orgRole)) {
       return forbidden('Insufficient organization role')
+    }
+    if (
+      options?.permission &&
+      !canUserPerform(auth.user.role, auth.orgRole ?? null, options.permission)
+    ) {
+      return forbidden(`You do not have permission (${options.permission})`)
     }
     return handler(req, ctx, auth)
   })

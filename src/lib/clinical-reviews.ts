@@ -2,6 +2,13 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createNotifications } from "@/lib/notifications";
 import { getOrgPatientOrThrow } from "@/lib/care-plans";
+import type { AuthContext } from "@/lib/middleware";
+import {
+  assertClinicalReviewAccess,
+  assertEscalationManageAccess,
+  assertIncidentManageAccess,
+  assertIncidentReportAccess,
+} from "@/lib/rbac";
 
 export const escalationInclude = {
   patient: { select: { id: true, fullName: true } },
@@ -40,24 +47,50 @@ export const incidentInclude = {
   },
 } satisfies Prisma.IncidentInclude;
 
-export function assertClinicalReviewer(role: string) {
-  if (!["agency_admin", "supervisor", "physician", "physician_independent"].includes(role)) {
-    throw new Error("REVIEW_FORBIDDEN");
+export function assertClinicalReviewer(
+  auth: Pick<AuthContext, "user" | "orgRole"> | string,
+) {
+  if (typeof auth === "string") {
+    if (
+      !["agency_admin", "supervisor", "physician", "physician_independent"].includes(
+        auth,
+      )
+    ) {
+      throw new Error("REVIEW_FORBIDDEN");
+    }
+    return;
   }
+  assertClinicalReviewAccess(auth);
 }
 
-export function assertIncidentReporter(role: string) {
-  const allowed = [
-    "agency_admin",
-    "supervisor",
-    "physician",
-    "physician_independent",
-    "aide",
-    "school_nurse",
-  ];
-  if (!allowed.includes(role)) {
-    throw new Error("INCIDENT_FORBIDDEN");
+export function assertIncidentReporter(
+  auth: Pick<AuthContext, "user" | "orgRole"> | string,
+) {
+  if (typeof auth === "string") {
+    const allowed = [
+      "agency_admin",
+      "supervisor",
+      "physician",
+      "physician_independent",
+      "aide",
+      "school_nurse",
+    ];
+    if (!allowed.includes(auth)) throw new Error("INCIDENT_FORBIDDEN");
+    return;
   }
+  assertIncidentReportAccess(auth);
+}
+
+export function assertIncidentManager(
+  auth: Pick<AuthContext, "user" | "orgRole">,
+) {
+  assertIncidentManageAccess(auth);
+}
+
+export function assertEscalationManager(
+  auth: Pick<AuthContext, "user" | "orgRole">,
+) {
+  assertEscalationManageAccess(auth);
 }
 
 export async function ensureOrgAssignee(

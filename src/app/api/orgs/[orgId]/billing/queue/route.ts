@@ -3,14 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { error, paginated, serverError } from "@/lib/api-response";
 import { withOrgAccess } from "@/lib/middleware";
 import { getPagination } from "@/lib/pagination";
-import { assertBillingUser, reviewInclude } from "@/lib/billing";
+import { reviewInclude } from "@/lib/billing";
+import { mapRbacError } from "@/lib/permission-errors";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
-
     const { skip, take, page, pageSize } = getPagination(req, 50);
     const where = {
       orgId: auth.orgId!,
@@ -33,9 +33,10 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
 
     return paginated(items, total, page, pageSize);
   } catch (err) {
-    if (err instanceof Error && err.message === "BILLING_FORBIDDEN") {
-      return error("Only billing users can access the billing queue", 403);
-    }
+    const denied = mapRbacError(err);
+    if (denied) return denied;
     return serverError(err);
   }
-});
+},
+  { permission: "billing:manage" },
+);

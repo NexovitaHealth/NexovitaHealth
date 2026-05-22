@@ -31,7 +31,7 @@ const createClaimSchema = z.object({
 
 export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
+    assertBillingUser(auth);
 
     const { skip, take, page, pageSize } = getPagination(req, 50);
     const status = req.nextUrl.searchParams.get("status") || undefined;
@@ -65,7 +65,7 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
 
 export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
+    assertBillingUser(auth);
 
     const body = await req.json();
     const parsed = createClaimSchema.safeParse(body);

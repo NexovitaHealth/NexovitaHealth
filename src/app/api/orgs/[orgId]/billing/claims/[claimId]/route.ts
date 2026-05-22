@@ -29,7 +29,7 @@ const updateClaimSchema = z.object({
 
 export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
+    assertBillingUser(auth);
 
     const claim = await prisma.claim.findFirst({
       where: {
@@ -52,7 +52,7 @@ export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
 
 export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
+    assertBillingUser(auth);
 
     const body = await req.json();
     const parsed = updateClaimSchema.safeParse(body);

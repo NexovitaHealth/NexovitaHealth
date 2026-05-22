@@ -30,120 +30,41 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
+import { NAV_ITEMS } from "@/components/layout/nav-permissions";
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ElementType;
-  roles?: string[];
-  badge?: number;
-}
+const NAV_ICONS: Record<string, React.ElementType> = {
+  "/dashboard": LayoutDashboard,
+  "/patients": Users,
+  "/projects": FolderKanban,
+  "/tasks": ClipboardList,
+  "/schedule": Calendar,
+  "/my-visits": CalendarCheck,
+  "/supervisor": Shield,
+  "/visit-review": ClipboardCheck,
+  "/physician-orders": FileSignature,
+  "/escalations": AlertTriangle,
+  "/incidents": FileWarning,
+  "/vitals": Activity,
+  "/labs": FlaskConical,
+  "/messages": MessageSquare,
+  "/notifications": Bell,
+  "/billing": DollarSign,
+  "/reports": BarChart3,
+  "/team": Heart,
+  "/family-caregivers": UserCheck,
+  "/audit": Shield,
+  "/settings": Settings,
+};
 
 export function Sidebar() {
   const { user, activeOrg, logout, setActiveOrg } = useAuth();
+  const { can } = usePermissions();
   const pathname = usePathname();
   const [orgDropdown, setOrgDropdown] = useState(false);
 
-  const orgId = activeOrg?.orgId;
-
-  const navItems: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: `/patients`, label: "Patients", icon: Users },
-    { href: `/projects`, label: "Projects", icon: FolderKanban },
-    { href: `/tasks`, label: "Tasks", icon: ClipboardList },
-    { href: `/schedule`, label: "Schedule", icon: Calendar },
-    {
-      href: `/my-visits`,
-      label: "My Visits",
-      icon: CalendarCheck,
-      roles: ["aide", "school_nurse"],
-    },
-    {
-      href: `/supervisor`,
-      label: "Supervisor Panel",
-      icon: Shield,
-      roles: [
-        "agency_admin",
-        "supervisor",
-        "physician",
-        "physician_independent",
-      ],
-    },
-    {
-      href: `/visit-review`,
-      label: "Visit Review",
-      icon: ClipboardCheck,
-      roles: ["agency_admin", "supervisor", "physician"],
-    },
-    {
-      href: `/physician-orders`,
-      label: "Physician Orders",
-      icon: FileSignature,
-      roles: [
-        "agency_admin",
-        "supervisor",
-        "physician",
-        "physician_independent",
-      ],
-    },
-    {
-      href: `/escalations`,
-      label: "Escalations",
-      icon: AlertTriangle,
-      roles: [
-        "agency_admin",
-        "supervisor",
-        "physician",
-        "physician_independent",
-      ],
-    },
-    {
-      href: `/incidents`,
-      label: "Incidents",
-      icon: FileWarning,
-      roles: [
-        "agency_admin",
-        "supervisor",
-        "physician",
-        "physician_independent",
-        "aide",
-        "school_nurse",
-      ],
-    },
-    { href: `/vitals`, label: "Vitals Monitor", icon: Activity },
-    { href: `/labs`, label: "Lab Results", icon: FlaskConical },
-    { href: `/messages`, label: "Messages", icon: MessageSquare },
-    { href: `/notifications`, label: "Notifications", icon: Bell },
-    {
-      href: `/billing`,
-      label: "Billing",
-      icon: DollarSign,
-      roles: ["agency_admin", "billing_manager"],
-    },
-    {
-      href: `/reports`,
-      label: "Reports",
-      icon: BarChart3,
-      roles: ["agency_admin", "supervisor", "billing_manager"],
-    },
-    { href: `/team`, label: "Team", icon: Heart },
-    {
-      href: `/family-caregivers`,
-      label: "Family Caregivers",
-      icon: UserCheck,
-      roles: ["agency_admin", "supervisor", "superadmin"],
-    },
-    {
-      href: `/audit`,
-      label: "Audit Log",
-      icon: Shield,
-      roles: ["agency_admin", "superadmin"],
-    },
-    { href: `/settings`, label: "Settings", icon: Settings },
-  ];
-
-  const filteredNav = navItems.filter(
-    (item) => !item.roles || item.roles.includes(user?.role || ""),
+  const filteredNav = NAV_ITEMS.filter(
+    (item) => !item.permission || can(item.permission),
   );
 
   return (
@@ -217,6 +138,7 @@ export function Sidebar() {
         {filteredNav.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
+          const Icon = NAV_ICONS[item.href] ?? LayoutDashboard;
           return (
             <Link
               key={item.href}
@@ -228,18 +150,13 @@ export function Sidebar() {
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
               )}
             >
-              <item.icon
+              <Icon
                 className={cn(
                   "w-4 h-4 flex-shrink-0",
                   isActive ? "text-white" : "text-slate-400",
                 )}
               />
               <span className="font-medium">{item.label}</span>
-              {item.badge ? (
-                <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {item.badge}
-                </span>
-              ) : null}
             </Link>
           );
         })}

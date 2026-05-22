@@ -29,7 +29,8 @@ const addResultsSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
+export const PATCH = withOrgAccess(
+  async (req: NextRequest, ctx, auth) => {
   try {
     const order = await getOrgLabOrderOrThrow(
       auth.orgId!,
@@ -88,4 +89,6 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
     }
     return serverError(err);
   }
-});
+},
+  { permission: "lab:result" },
+);

@@ -57,7 +57,8 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   }
 });
 
-export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
     const body = await req.json();
     const parsed = createLabSchema.safeParse(body);
@@ -98,4 +99,6 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     }
     return serverError(err);
   }
-});
+},
+  { permission: "lab:order" },
+);

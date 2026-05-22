@@ -45,7 +45,7 @@ export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
 
 export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
-    assertClinicalReviewer(auth.user.role);
+    assertClinicalReviewer(auth);
 
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);

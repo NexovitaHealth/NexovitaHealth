@@ -1,7 +1,37 @@
+import type { Permission } from "@/lib/permissions";
+import { canUserPerform } from "@/lib/permissions";
+
 /**
  * Route classification for Next.js middleware (staff app vs public vs portal).
  * Keep in sync with src/app route groups: (app), (auth), (portal).
  */
+
+/** Staff pages that require a specific permission (user role from session JWT). */
+export const PAGE_PERMISSIONS: Record<string, Permission> = {
+  "/billing": "billing:manage",
+  "/audit": "audit:read",
+  "/reports": "report:view",
+  "/visit-review": "review:decide",
+  "/physician-orders": "physician_order:manage",
+  "/escalations": "escalation:read",
+  "/family-caregivers": "caregiver:manage",
+  "/supervisor": "clinical:supervise",
+  "/my-visits": "visit:checkin",
+};
+
+export function getPagePermission(pathname: string): Permission | undefined {
+  if (PAGE_PERMISSIONS[pathname]) return PAGE_PERMISSIONS[pathname];
+  for (const [path, permission] of Object.entries(PAGE_PERMISSIONS)) {
+    if (pathname.startsWith(`${path}/`)) return permission;
+  }
+  return undefined;
+}
+
+export function canAccessPage(role: string, pathname: string) {
+  const permission = getPagePermission(pathname);
+  if (!permission) return true;
+  return canUserPerform(role, null, permission);
+}
 
 const AUTH_PATHS = new Set([
   "/login",

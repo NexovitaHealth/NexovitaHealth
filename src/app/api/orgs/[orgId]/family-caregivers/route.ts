@@ -66,7 +66,7 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
 export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
     try {
-      assertFamilyCaregiverManager(auth.user.role, auth.orgRole);
+      assertFamilyCaregiverManager(auth);
     } catch {
       return error("Insufficient permissions to manage family caregivers", 403);
     }

@@ -17,7 +17,7 @@ const querySchema = z.object({
 
 export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    assertClinicalReviewer(auth.user.role);
+    assertClinicalReviewer(auth);
 
     const parsed = querySchema.safeParse({
       status: req.nextUrl.searchParams.get("status") || undefined,

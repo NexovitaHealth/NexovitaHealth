@@ -22,23 +22,31 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash)
 }
 
-export async function createSession(userId: string, ipAddress?: string, userAgent?: string) {
+export async function createSession(
+  userId: string,
+  options?: {
+    ipAddress?: string
+    userAgent?: string
+    email?: string
+    role?: string
+  },
+) {
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE * 1000)
   
   const session = await prisma.session.create({
     data: {
       userId,
       token: crypto.randomUUID(),
-      ipAddress,
-      userAgent,
+      ipAddress: options?.ipAddress,
+      userAgent: options?.userAgent,
       expiresAt,
     }
   })
 
   const payload: JWTPayload = {
     userId,
-    email: '',
-    role: '',
+    email: options?.email ?? '',
+    role: options?.role ?? '',
     sessionId: session.id,
   }
 

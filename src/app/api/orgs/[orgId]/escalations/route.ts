@@ -73,7 +73,7 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
 
 export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    assertClinicalReviewer(auth.user.role);
+    assertClinicalReviewer(auth);
 
     const body = await req.json();
     const parsed = createSchema.safeParse(body);

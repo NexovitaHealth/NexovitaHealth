@@ -36,7 +36,7 @@ const updateSchema = z.object({
 
 export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
   try {
-    assertPayerAuthReader(auth.user.role);
+    assertPayerAuthReader(auth);
     const row = await getOrgAuthorisationOrThrow(
       auth.orgId!,
       ctx.params.authorisationId,
@@ -57,7 +57,7 @@ export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
 
 export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
-    assertPayerAuthManager(auth.user.role);
+    assertPayerAuthManager(auth);
 
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
@@ -135,7 +135,7 @@ export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
 
 export const DELETE = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
-    assertPayerAuthManager(auth.user.role);
+    assertPayerAuthManager(auth);
 
     const existing = await getOrgAuthorisationOrThrow(
       auth.orgId!,

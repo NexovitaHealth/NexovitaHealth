@@ -47,11 +47,12 @@ export async function POST(req: NextRequest) {
       undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
 
-    const { token, expiresAt } = await createSession(
-      user.id,
+    const { token, expiresAt } = await createSession(user.id, {
       ipAddress,
       userAgent,
-    );
+      email: user.email,
+      role: user.role,
+    });
 
     await prisma.user.update({
       where: { id: user.id },

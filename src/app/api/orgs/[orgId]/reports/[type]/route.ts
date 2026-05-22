@@ -5,7 +5,8 @@ import { getOrgReport, parseReportType } from "@/lib/reports";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, ctx, auth) => {
   try {
     const reportType = parseReportType(ctx.params.type);
     if (!reportType) return error("Unsupported report type", 400);
@@ -20,4 +21,6 @@ export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+},
+  { permission: "report:view" },
+);

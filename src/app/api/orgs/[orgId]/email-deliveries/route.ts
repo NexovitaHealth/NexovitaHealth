@@ -1,19 +1,14 @@
 import { NextRequest } from "next/server";
 import type { EmailDeliveryStatus } from "@prisma/client";
 import { withOrgAccess } from "@/lib/middleware";
-import { error, serverError, success } from "@/lib/api-response";
+import { serverError, success } from "@/lib/api-response";
 import { listEmailDeliveries } from "@/lib/email-delivery";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_ROLES = ["agency_admin"];
-
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
-    if (!ADMIN_ROLES.includes(auth.user.role)) {
-      return error("Only agency admins can view email delivery logs", 403);
-    }
-
     const status = req.nextUrl.searchParams.get("status") as
       | EmailDeliveryStatus
       | null;
@@ -30,4 +25,6 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+},
+  { permission: "email:admin" },
+);

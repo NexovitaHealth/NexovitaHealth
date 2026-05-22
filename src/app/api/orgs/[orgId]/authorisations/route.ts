@@ -38,9 +38,9 @@ const createSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
-    assertPayerAuthReader(auth.user.role);
     await syncExpiredAuthorisations(auth.orgId!);
 
     const { skip, take, page, pageSize } = getPagination(req, 50);
@@ -69,17 +69,15 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
 
     return paginated(items, total, page, pageSize);
   } catch (err) {
-    if (err instanceof Error && err.message === "PAYER_AUTH_FORBIDDEN") {
-      return error("You cannot view payer authorisations", 403);
-    }
     return serverError(err);
   }
-});
+},
+  { permission: "billing:read" },
+);
 
-export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
   try {
-    assertPayerAuthManager(auth.user.role);
-
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) return validationError(parsed.error);
@@ -150,4 +148,6 @@ export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
     }
     return serverError(err);
   }
-});
+},
+  { permission: "authorisation:manage" },
+);

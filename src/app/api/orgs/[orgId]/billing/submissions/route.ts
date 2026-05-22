@@ -21,7 +21,7 @@ const submitSchema = z.object({
 
 export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
+    assertBillingUser(auth);
 
     const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || 1));
     const pageSize = Math.min(
@@ -51,7 +51,7 @@ export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
 
 export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
+    assertBillingUser(auth);
 
     const body = await req.json().catch(() => ({}));
     const parsed = submitSchema.safeParse(body);

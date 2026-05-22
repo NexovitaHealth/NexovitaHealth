@@ -19,7 +19,7 @@ const reviewDecisionSchema = z.object({
 
 export const PATCH = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
-    assertClinicalReviewer(auth.user.role);
+    assertClinicalReviewer(auth);
 
     const body = await req.json();
     const parsed = reviewDecisionSchema.safeParse(body);

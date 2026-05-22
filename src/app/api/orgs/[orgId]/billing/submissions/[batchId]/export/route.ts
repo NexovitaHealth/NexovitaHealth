@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
   try {
-    assertBillingUser(auth.user.role);
+    assertBillingUser(auth);
 
     const result = await getSubmissionBatchExport(
       auth.orgId!,

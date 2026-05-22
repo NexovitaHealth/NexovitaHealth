@@ -111,11 +111,12 @@ export async function POST(req: NextRequest) {
 
     const ipAddress = req.headers.get("x-forwarded-for") || undefined;
     const userAgent = req.headers.get("user-agent") || undefined;
-    const { token, expiresAt } = await createSession(
-      user.id,
+    const { token, expiresAt } = await createSession(user.id, {
       ipAddress,
       userAgent,
-    );
+      email: user.email,
+      role: user.role,
+    });
     setSessionCookie(token, expiresAt);
 
     return success(
