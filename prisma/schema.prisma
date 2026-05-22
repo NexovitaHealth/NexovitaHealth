@@ -456,7 +456,10 @@ model Patient {
   
   // Clinical
   primaryDiagnosis  String?       @map("primary_diagnosis")
+  primaryDiagnosisIcd10 String?   @map("primary_diagnosis_icd10")
   secondaryDiagnoses Json         @default("[]") @map("secondary_diagnoses")
+  admissionSource   String?       @map("admission_source")
+  preferredLanguage String?       @map("preferred_language")
   allergies         Json          @default("[]")
   bloodType         String?       @map("blood_type")
   insuranceProvider String?       @map("insurance_provider")
@@ -467,6 +470,8 @@ model Patient {
   riskLevel         RiskLevel     @default(low) @map("risk_level")
   admissionDate     DateTime?     @map("admission_date")
   dischargeDate     DateTime?     @map("discharge_date")
+  dischargeReason   String?       @map("discharge_reason")
+  dischargeDisposition String?    @map("discharge_disposition")
   
   // Care type flags
   isHomeCare        Boolean       @default(false) @map("is_home_care")

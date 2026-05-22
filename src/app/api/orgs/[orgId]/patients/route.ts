@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { withOrgAccess } from "@/lib/middleware";
 import {
@@ -12,6 +11,10 @@ import {
 import { createAuditLog } from "@/lib/audit";
 import { getPagination, getSearchParams } from "@/lib/pagination";
 import { parseAssignedToMeFilter } from "@/lib/patient-list-scope";
+import {
+  buildPatientCreateData,
+  createPatientSchema,
+} from "@/lib/patients";
 
 export const dynamic = "force-dynamic";
 
@@ -86,54 +89,15 @@ export const GET = withOrgAccess(async (req, ctx, auth) => {
   }
 });
 
-const createPatientSchema = z.object({
-  fullName: z.string().min(2),
-  dateOfBirth: z.string().optional(),
-  gender: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  primaryDiagnosis: z.string().optional(),
-  allergies: z.array(z.string()).optional(),
-  bloodType: z.string().optional(),
-  insuranceProvider: z.string().optional(),
-  insuranceNumber: z.string().optional(),
-  emergencyContact: z.string().optional(),
-  emergencyPhone: z.string().optional(),
-  isHomeCare: z.boolean().optional(),
-  isHospice: z.boolean().optional(),
-  isPalliative: z.boolean().optional(),
-  riskLevel: z.enum(["low", "medium", "high", "critical"]).optional(),
-  branchId: z.string().uuid().optional(),
-});
-
-export const POST = withOrgAccess(async (req, _ctx, auth) => {
+export const POST = withOrgAccess(
+  async (req, _ctx, auth) => {
   try {
     const body = await req.json();
     const parsed = createPatientSchema.safeParse(body);
     if (!parsed.success) return validationError(parsed.error);
 
     const patient = await prisma.patient.create({
-      data: {
-        ...parsed.data,
-        orgId: auth.orgId!,
-        dateOfBirth: parsed.data.dateOfBirth
-          ? new Date(parsed.data.dateOfBirth as string)
-          : undefined,
-        admissionDate: new Date(),
-        status: "intake",
-        riskLevel: parsed.data.riskLevel ?? "low",
-        allergies: parsed.data.allergies ?? [],
-        secondaryDiagnoses: [],
-        careTeam: {
-          create: {
-            userId: auth.userId,
-            role: "admitting_staff",
-            isActive: true,
-          },
-        },
-      },
+      data: buildPatientCreateData(auth.orgId!, auth.userId, parsed.data),
     });
 
     await createAuditLog({
@@ -151,4 +115,6 @@ export const POST = withOrgAccess(async (req, _ctx, auth) => {
   } catch (err) {
     return serverError(err);
   }
-});
+  },
+  { permission: "patient:create" },
+);

@@ -32,6 +32,52 @@ import {
 import Link from "next/link";
 import { ClinicalTabPanel } from "@/components/clinical/ClinicalTabPanel";
 import { DocumentsTab } from "@/components/patients/DocumentsTab";
+import { PatientEditModal } from "@/components/patients/PatientEditModal";
+import { PatientStatusModal } from "@/components/patients/PatientStatusModal";
+import { usePermissions } from "@/hooks/usePermissions";
+import { admissionSourceLabel } from "@/lib/patients";
+
+type ChartPatient = {
+  id: string;
+  fullName: string;
+  riskLevel: string;
+  status: string;
+  primaryDiagnosis?: string | null;
+  primaryDiagnosisIcd10?: string | null;
+  admissionSource?: string | null;
+  preferredLanguage?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  admissionDate?: string | null;
+  dischargeDate?: string | null;
+  dischargeReason?: string | null;
+  dischargeDisposition?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  city?: string | null;
+  region?: string | null;
+  bloodType?: string | null;
+  insuranceProvider?: string | null;
+  insuranceNumber?: string | null;
+  allergies?: string[];
+  emergencyContact?: string | null;
+  emergencyPhone?: string | null;
+  isHomeCare?: boolean;
+  isHospice?: boolean;
+  isPalliative?: boolean;
+  alerts?: Array<{
+    id: string;
+    severity: string;
+    message?: string;
+    title?: string;
+    resolvedAt?: string;
+  }>;
+  careTeam?: unknown[];
+  carePlans?: unknown[];
+  medications?: unknown[];
+  _count?: { visitLogs?: number; labOrders?: number };
+};
 
 const TABS = [
   { id: "overview", label: "Overview", icon: FileText },
@@ -48,9 +94,14 @@ export default function PatientChartPage() {
   const { patientId } = useParams();
   const { request, orgId } = useApi();
   const { user, activeOrg } = useAuth();
+  const { can } = usePermissions();
   const [activeTab, setActiveTab] = useState("overview");
+  const [showEdit, setShowEdit] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
   const [portalLink, setPortalLink] = useState<string | null>(null);
   const [portalError, setPortalError] = useState("");
+
+  const canUpdatePatient = can("patient:update");
 
   const canIssuePortal =
     ["owner", "admin"].includes(activeOrg?.role || "") ||
@@ -85,34 +136,7 @@ export default function PatientChartPage() {
     enabled: !!orgId && !!patientId && activeTab === "vitals",
   });
 
-  type PatientDetail = {
-    id: string;
-    firstName: string;
-    lastName: string;
-    fullName: string;
-    riskLevel: string;
-    status: string;
-    primaryDiagnosis?: string;
-    dateOfBirth?: string;
-    gender?: string;
-    admissionDate?: string;
-    phone?: string;
-    email?: string;
-    address?: string;
-    bloodType?: string;
-    allergies?: string;
-    emergencyContact?: string;
-    alerts?: Array<{
-      id: string;
-      severity: string;
-      message: string;
-      resolvedAt?: string;
-    }>;
-    medications?: unknown[];
-    careTeam?: unknown[];
-    _count?: { visits?: number; labOrders?: number };
-  };
-  const patient = patientResponse?.data as PatientDetail | undefined;
+  const patient = patientResponse?.data as ChartPatient | undefined;
 
   if (isLoading) {
     return (
@@ -201,10 +225,16 @@ export default function PatientChartPage() {
                 Issue portal link
               </button>
             )}
-            <button className="btn-ghost flex items-center gap-2 text-sm">
-              <Edit className="w-3.5 h-3.5" />
-              Edit
-            </button>
+            {canUpdatePatient && (
+              <button
+                type="button"
+                onClick={() => setShowEdit(true)}
+                className="btn-ghost flex items-center gap-2 text-sm"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            )}
           </div>
         </div>
 
@@ -260,7 +290,14 @@ export default function PatientChartPage() {
 
       {/* Tab Content */}
       <div className="flex-1 overflow-y-auto p-8">
-        {activeTab === "overview" && <OverviewTab patient={patient} />}
+        {activeTab === "overview" && (
+          <OverviewTab
+            patient={patient}
+            canUpdate={canUpdatePatient}
+            onEdit={() => setShowEdit(true)}
+            onChangeStatus={() => setShowStatus(true)}
+          />
+        )}
         {activeTab === "clinical" && orgId && (
           <ClinicalTabPanel
             patientId={patientId as string}
@@ -313,6 +350,21 @@ export default function PatientChartPage() {
           />
         )}
       </div>
+
+      {showEdit && orgId && (
+        <PatientEditModal
+          patient={patient}
+          orgId={orgId}
+          onClose={() => setShowEdit(false)}
+        />
+      )}
+      {showStatus && orgId && (
+        <PatientStatusModal
+          patient={patient}
+          orgId={orgId}
+          onClose={() => setShowStatus(false)}
+        />
+      )}
     </div>
   );
 }
@@ -330,50 +382,128 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-function OverviewTab({ patient }: { patient: any }) {
+function OverviewTab({
+  patient,
+  canUpdate,
+  onEdit,
+  onChangeStatus,
+}: {
+  patient: Record<string, unknown>;
+  canUpdate: boolean;
+  onEdit: () => void;
+  onChangeStatus: () => void;
+}) {
+  const p = patient as {
+    fullName: string;
+    dateOfBirth?: string;
+    gender?: string;
+    bloodType?: string;
+    insuranceProvider?: string;
+    insuranceNumber?: string;
+    primaryDiagnosis?: string;
+    primaryDiagnosisIcd10?: string;
+    admissionSource?: string;
+    preferredLanguage?: string;
+    admissionDate?: string;
+    dischargeDate?: string;
+    dischargeReason?: string;
+    dischargeDisposition?: string;
+    status?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    city?: string;
+    emergencyContact?: string;
+    emergencyPhone?: string;
+    allergies?: string[];
+    isHomeCare?: boolean;
+    isHospice?: boolean;
+    isPalliative?: boolean;
+    alerts?: unknown[];
+    _count?: { visitLogs?: number; labOrders?: number };
+  };
+
   return (
     <div className="grid grid-cols-3 gap-6">
       <div className="col-span-2 space-y-5">
+        {canUpdate && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={onEdit} className="btn-ghost text-sm">
+              <Edit className="w-3.5 h-3.5 inline mr-1" />
+              Edit overview
+            </button>
+            <button
+              type="button"
+              onClick={onChangeStatus}
+              className="btn-ghost text-sm"
+            >
+              Change status
+            </button>
+          </div>
+        )}
         <div className="card p-5">
           <h3 className="font-semibold text-slate-800 mb-4 text-sm">
             Patient Information
           </h3>
           <dl>
-            <InfoRow label="Full Name" value={patient.fullName} />
+            <InfoRow label="Full Name" value={p.fullName} />
             <InfoRow
               label="Date of Birth"
-              value={
-                patient.dateOfBirth ? formatDate(patient.dateOfBirth) : null
-              }
+              value={p.dateOfBirth ? formatDate(p.dateOfBirth) : null}
             />
-            <InfoRow label="Gender" value={patient.gender} />
-            <InfoRow label="Blood Type" value={patient.bloodType} />
-            <InfoRow label="Insurance" value={patient.insuranceProvider} />
-            <InfoRow label="Insurance #" value={patient.insuranceNumber} />
+            <InfoRow label="Gender" value={p.gender} />
+            <InfoRow label="Preferred language" value={p.preferredLanguage} />
+            <InfoRow
+              label="Admission source"
+              value={admissionSourceLabel(p.admissionSource)}
+            />
+            <InfoRow label="Primary diagnosis" value={p.primaryDiagnosis} />
+            <InfoRow label="ICD-10" value={p.primaryDiagnosisIcd10} />
+            <InfoRow label="Blood Type" value={p.bloodType} />
+            <InfoRow label="Insurance" value={p.insuranceProvider} />
+            <InfoRow label="Insurance #" value={p.insuranceNumber} />
           </dl>
         </div>
+        {(p.dischargeDate || p.dischargeReason) && (
+          <div className="card p-5 border-amber-100">
+            <h3 className="font-semibold text-slate-800 mb-4 text-sm">
+              Discharge
+            </h3>
+            <dl>
+              <InfoRow
+                label="Discharge date"
+                value={p.dischargeDate ? formatDate(p.dischargeDate) : null}
+              />
+              <InfoRow
+                label="Disposition"
+                value={admissionSourceLabel(p.dischargeDisposition)}
+              />
+              <InfoRow label="Reason" value={p.dischargeReason} />
+            </dl>
+          </div>
+        )}
         <div className="card p-5">
           <h3 className="font-semibold text-slate-800 mb-4 text-sm">
             Contact Information
           </h3>
           <dl>
-            <InfoRow label="Phone" value={patient.phone} />
-            <InfoRow label="Email" value={patient.email} />
+            <InfoRow label="Phone" value={p.phone} />
+            <InfoRow label="Email" value={p.email} />
             <InfoRow
               label="Address"
-              value={[patient.address, patient.city].filter(Boolean).join(", ")}
+              value={[p.address, p.city].filter(Boolean).join(", ")}
             />
-            <InfoRow label="Emergency" value={patient.emergencyContact} />
-            <InfoRow label="Emergency Ph." value={patient.emergencyPhone} />
+            <InfoRow label="Emergency" value={p.emergencyContact} />
+            <InfoRow label="Emergency Ph." value={p.emergencyPhone} />
           </dl>
         </div>
-        {patient.allergies?.length > 0 && (
+        {p.allergies && p.allergies.length > 0 && (
           <div className="card p-5">
             <h3 className="font-semibold text-slate-800 mb-3 text-sm">
               Allergies
             </h3>
             <div className="flex flex-wrap gap-2">
-              {patient.allergies.map((a: string, i: number) => (
+              {p.allergies.map((a: string, i: number) => (
                 <span
                   key={i}
                   className="px-2.5 py-1 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg font-medium"
@@ -410,7 +540,7 @@ function OverviewTab({ patient }: { patient: any }) {
               },
             ].map(
               (s) =>
-                patient[s.key] && (
+                p[s.key as keyof typeof p] && (
                   <div
                     key={s.key}
                     className={`px-3 py-2 rounded-xl text-sm font-medium ${s.color}`}
@@ -430,21 +560,21 @@ function OverviewTab({ patient }: { patient: any }) {
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-500">Visit Logs</span>
               <span className="text-sm font-semibold text-slate-800">
-                {patient._count?.visitLogs || 0}
+                {p._count?.visitLogs || 0}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-500">Lab Orders</span>
               <span className="text-sm font-semibold text-slate-800">
-                {patient._count?.labOrders || 0}
+                {p._count?.labOrders || 0}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-500">Open Alerts</span>
               <span
-                className={`text-sm font-semibold ${patient.alerts?.length > 0 ? "text-red-600" : "text-slate-800"}`}
+                className={`text-sm font-semibold ${(p.alerts?.length ?? 0) > 0 ? "text-red-600" : "text-slate-800"}`}
               >
-                {patient.alerts?.length || 0}
+                {p.alerts?.length || 0}
               </span>
             </div>
           </div>

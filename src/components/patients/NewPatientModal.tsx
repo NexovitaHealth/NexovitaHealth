@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useApi } from "@/hooks/useApi";
 import { X, User } from "lucide-react";
+import { ADMISSION_SOURCES, admissionSourceLabel } from "@/lib/patients";
 
 interface Props {
   onClose: () => void;
@@ -21,6 +22,9 @@ export function NewPatientModal({ onClose, onSuccess }: Props) {
     address: "",
     city: "",
     primaryDiagnosis: "",
+    primaryDiagnosisIcd10: "",
+    admissionSource: "",
+    preferredLanguage: "",
     bloodType: "",
     insuranceProvider: "",
     insuranceNumber: "",
@@ -176,13 +180,52 @@ export function NewPatientModal({ onClose, onSuccess }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Primary Diagnosis
+                  Primary diagnosis
                 </label>
                 <input
                   value={form.primaryDiagnosis}
                   onChange={(e) => set("primaryDiagnosis", e.target.value)}
                   className="input-base"
-                  placeholder="e.g. CHF - Congestive Heart Failure"
+                  placeholder="e.g. Congestive heart failure"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  ICD-10 code
+                </label>
+                <input
+                  value={form.primaryDiagnosisIcd10}
+                  onChange={(e) => set("primaryDiagnosisIcd10", e.target.value)}
+                  className="input-base"
+                  placeholder="e.g. I50.9"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Admission source
+                </label>
+                <select
+                  value={form.admissionSource}
+                  onChange={(e) => set("admissionSource", e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Select source</option>
+                  {ADMISSION_SOURCES.map((s) => (
+                    <option key={s} value={s}>
+                      {admissionSourceLabel(s)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Preferred language
+                </label>
+                <input
+                  value={form.preferredLanguage}
+                  onChange={(e) => set("preferredLanguage", e.target.value)}
+                  className="input-base"
+                  placeholder="e.g. English"
                 />
               </div>
               <div>
