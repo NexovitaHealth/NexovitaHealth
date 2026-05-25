@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import { getSessionFromRequest } from "@/lib/auth";
 import { error, notFound, serverError } from "@/lib/api-response";
 import { prisma } from "@/lib/prisma";
+import { storage } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -21,24 +20,19 @@ export async function GET(
     });
     if (!doc) return notFound("File");
 
-    const basePath = process.env.STORAGE_LOCAL_PATH || "./storage/uploads";
-    const filePath = path.join(basePath, params.key);
-
-    let buffer: Buffer;
-    try {
-      buffer = await fs.readFile(filePath);
-    } catch {
-      return notFound("File");
-    }
+    const { buffer, mimeType } = await storage.read(params.key);
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
-        "Content-Type": doc.mimeType,
+        "Content-Type": mimeType ?? doc.mimeType,
         "Content-Disposition": `inline; filename="${doc.title}"`,
         "Cache-Control": "private, max-age=3600",
       },
     });
   } catch (err) {
+    if (err instanceof Error && err.message.includes("ENOENT")) {
+      return notFound("File");
+    }
     return serverError(err);
   }
 }

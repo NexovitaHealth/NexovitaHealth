@@ -4,6 +4,7 @@ import {
   clampComplianceTrendDays,
   getOrgComplianceTrends,
 } from "@/lib/compliance-trends";
+import { getOrgComplianceCounts } from "@/lib/compliance-counts";
 
 const OPEN_ESCALATION = ["open", "in_review"] as const;
 const OPEN_INCIDENT = ["reported", "triaged"] as const;
@@ -17,52 +18,21 @@ export async function getOrgComplianceDashboard(
 
   const now = new Date();
   const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
 
   const [
+    counts,
     alertsBySeverity,
-    openEscalations,
-    openIncidents,
-    pendingVisitReviews,
-    missedVisitsToday,
     expiringAuthorisations,
     highRiskActivePatients,
     recentClinicalAlerts,
     recentEscalations,
     recentIncidents,
   ] = await Promise.all([
+    getOrgComplianceCounts(orgId),
     prisma.clinicalAlert.groupBy({
       by: ["severity"],
       where: { orgId, isResolved: false },
       _count: { _all: true },
-    }),
-    prisma.escalation.count({
-      where: {
-        orgId,
-        deletedAt: null,
-        status: { in: [...OPEN_ESCALATION] },
-      },
-    }),
-    prisma.incident.count({
-      where: {
-        orgId,
-        deletedAt: null,
-        status: { in: [...OPEN_INCIDENT] },
-      },
-    }),
-    prisma.visitReview.count({
-      where: { orgId, status: "pending" },
-    }),
-    prisma.visitLog.count({
-      where: {
-        orgId,
-        deletedAt: null,
-        scheduledAt: { gte: startOfToday, lte: endOfToday },
-        status: "missed",
-      },
     }),
     prisma.payerAuthorisation.findMany({
       where: {
@@ -124,30 +94,13 @@ export async function getOrgComplianceDashboard(
     }
   }
 
-  const openClinicalAlerts =
-    alertSeverityCounts.critical +
-    alertSeverityCounts.warning +
-    alertSeverityCounts.info;
-
-  const openComplianceItems =
-    openClinicalAlerts +
-    openEscalations +
-    openIncidents +
-    pendingVisitReviews +
-    missedVisitsToday;
 
   const trends = await getOrgComplianceTrends(orgId, trendDays);
 
   return {
     counts: {
-      openComplianceItems,
-      openClinicalAlerts,
-      openCriticalAlerts: alertSeverityCounts.critical,
+      ...counts,
       openWarningAlerts: alertSeverityCounts.warning,
-      openEscalations,
-      openIncidents,
-      pendingVisitReviews,
-      missedVisitsToday,
       expiringAuthorisations: expiringAuthorisations.length,
       highRiskActivePatients,
     },

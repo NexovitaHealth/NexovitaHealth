@@ -1,0 +1,89 @@
+# Cloud Build — build image, run migrations, deploy to Cloud Run
+#
+#   gcloud builds submit --config=cloudbuild.yaml \
+#     --substitutions=_CLOUDSQL_INSTANCE=PROJECT:REGION:INSTANCE,_APP_URL=https://app.yourdomain.com,_S3_ENDPOINT=https://ACCOUNT.r2.cloudflarestorage.com
+
+substitutions:
+  _SERVICE: nexovita
+  _REGION: africa-south1
+  _REPOSITORY: nexovita
+  _CLOUDSQL_INSTANCE: "rich-compiler-497321-e6:africa-south1:database-dev"
+  _APP_URL: https://nexovitahealth.com
+  _S3_ENDPOINT: https://3604476d22f03d0b745199e570106f20.r2.cloudflarestorage.com
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --progress=plain
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}
+
+  - id: migrate
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID"
+        CMD=(gcloud run jobs deploy ${_SERVICE}-migrate
+          --image="$$IMAGE"
+          --region="${_REGION}"
+          --command=./docker-entrypoint.sh
+          --args=node,node_modules/prisma/build/index.js,migrate,deploy
+          --set-env-vars=NODE_ENV=production
+          --set-secrets=DATABASE_URL=nexovita-database-url:latest
+          --max-retries=0
+          --task-timeout=600s)
+        if [ -n "${_CLOUDSQL_INSTANCE}" ]; then
+          CMD+=(--set-cloudsql-instances="${_CLOUDSQL_INSTANCE}")
+        fi
+        "$${CMD[@]}"
+        gcloud run jobs execute ${_SERVICE}-migrate --region="${_REGION}" --wait
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID"
+        CMD=(gcloud run deploy ${_SERVICE}
+          --image="$$IMAGE"
+          --region="${_REGION}"
+          --platform=managed
+          --port=8080
+          --memory=1Gi
+          --cpu=1
+          --min-instances=0
+          --max-instances=20
+          --timeout=300
+          --concurrency=80
+          --allow-unauthenticated
+          --set-env-vars=NODE_ENV=production,STORAGE_PROVIDER=s3,AWS_REGION=auto,S3_FORCE_PATH_STYLE=true,NEXT_PUBLIC_APP_URL=${_APP_URL},S3_ENDPOINT=${_S3_ENDPOINT}
+          --set-secrets=DATABASE_URL=nexovita-database-url:latest,JWT_SECRET=nexovita-jwt-secret:latest,CRON_SECRET=nexovita-cron-secret:latest,AWS_ACCESS_KEY_ID=nexovita-storage-key-id:latest,AWS_SECRET_ACCESS_KEY=nexovita-storage-secret:latest,S3_BUCKET=nexovita-storage-bucket:latest)
+        if [ -n "${_CLOUDSQL_INSTANCE}" ]; then
+          CMD+=(--add-cloudsql-instances="${_CLOUDSQL_INSTANCE}")
+        fi
+        "$${CMD[@]}"
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:latest

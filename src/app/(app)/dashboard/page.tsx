@@ -1,6 +1,6 @@
 "use client";
 import { useAuth } from "@/hooks/useAuth";
-import { useApi } from "@/hooks/useApi";
+import { useOrgApi } from "@/hooks/useOrgApi";
 import { useQuery } from "@tanstack/react-query";
 import {
   Users,
@@ -8,9 +8,9 @@ import {
   Activity,
   AlertTriangle,
   TrendingUp,
-  Heart,
   Calendar,
   Clock,
+  ShieldAlert,
 } from "lucide-react";
 import { formatRelative, riskColor, statusColor } from "@/lib/utils";
 import Link from "next/link";
@@ -48,45 +48,38 @@ function StatCard({
 
 export default function DashboardPage() {
   const { user, activeOrg } = useAuth();
-  const { request, orgId } = useApi();
+  const { client, orgId } = useOrgApi();
 
-  const { data: summaryData } = useQuery({
+  const { data: summary } = useQuery({
     queryKey: ["dashboard", orgId, "summary"],
-    queryFn: () =>
-      request<{
-        totalPatients: number;
-        highRiskPatients: number;
-        openTasks: number;
-        unresolvedAlerts: number;
-        visitsToday: number;
-        pendingVisitReviews: number;
-        missedVisitsToday: number;
-      }>(`/api/orgs/{orgId}/dashboard`),
-    enabled: !!orgId,
+    queryFn: () => client!.dashboard.summary(),
+    enabled: !!client,
   });
 
-  const { data: patientsData } = useQuery({
+  const { data: patientsResult } = useQuery({
     queryKey: ["patients", orgId, "recent"],
-    queryFn: () => request<any>(`/api/orgs/{orgId}/patients?pageSize=5`),
-    enabled: !!orgId,
+    queryFn: () => client!.patients.listPaginated({ pageSize: 5 }),
+    enabled: !!client,
   });
 
-  const { data: tasksData } = useQuery({
+  const { data: tasks } = useQuery({
     queryKey: ["tasks", orgId, "recent"],
     queryFn: () =>
-      request<any>(
-        `/api/orgs/{orgId}/tasks?pageSize=5&sortBy=createdAt&sortOrder=desc`,
-      ),
-    enabled: !!orgId,
+      client!.tasks.list({
+        pageSize: 5,
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      }),
+    enabled: !!client,
   });
-
-  const summary = summaryData?.data;
-  const patients = (patientsData?.data as unknown[]) || [];
-  const tasks = (tasksData?.data as unknown[]) || [];
+  const patients = patientsResult?.items ?? [];
+  const taskItems = tasks ?? [];
   const totalPatients = summary?.totalPatients ?? 0;
   const highRisk = summary?.highRiskPatients ?? 0;
   const openTasks = summary?.openTasks ?? 0;
   const unresolvedAlerts = summary?.unresolvedAlerts ?? 0;
+  const complianceItems = summary?.compliance?.openComplianceItems ?? 0;
+  const criticalAlerts = summary?.compliance?.openCriticalAlerts ?? 0;
 
   const hour = new Date().getHours();
   const greeting =
@@ -94,7 +87,6 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 space-y-8">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">
           {greeting}, {user?.fullName?.split(" ")[0]} 👋
@@ -112,8 +104,7 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5">
         <StatCard
           icon={Users}
           label="Total Patients"
@@ -144,6 +135,19 @@ export default function DashboardPage() {
             color="bg-emerald-50 text-emerald-600"
           />
         </Link>
+        <Link href="/compliance" className="block hover:opacity-95 transition-opacity">
+          <StatCard
+            icon={ShieldAlert}
+            label="Compliance"
+            value={complianceItems}
+            trend={
+              criticalAlerts > 0
+                ? `${criticalAlerts} critical alert${criticalAlerts === 1 ? "" : "s"}`
+                : "Open compliance items"
+            }
+            color="bg-violet-50 text-violet-600"
+          />
+        </Link>
       </div>
 
       {summary && (
@@ -162,12 +166,16 @@ export default function DashboardPage() {
               {summary.missedVisitsToday} missed today
             </span>
           )}
+          {summary.compliance && summary.compliance.openEscalations > 0 && (
+            <span className="flex items-center gap-1.5 text-violet-700">
+              <ShieldAlert className="w-4 h-4" />
+              {summary.compliance.openEscalations} open escalations
+            </span>
+          )}
         </div>
       )}
 
-      {/* Main content */}
       <div className="grid grid-cols-3 gap-6">
-        {/* Recent Patients */}
         <div className="col-span-2 card">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h2 className="font-semibold text-slate-800">Recent Patients</h2>
@@ -228,7 +236,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Tasks */}
         <div className="card">
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h2 className="font-semibold text-slate-800">Recent Tasks</h2>
@@ -240,13 +247,13 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="divide-y divide-slate-50">
-            {tasks.length === 0 && (
+            {taskItems.length === 0 && (
               <div className="p-6 text-center text-slate-400 text-sm">
                 <ClipboardList className="w-6 h-6 mx-auto mb-2 opacity-40" />
                 <p>No tasks yet</p>
               </div>
             )}
-            {tasks.slice(0, 5).map((t: any) => (
+            {taskItems.slice(0, 5).map((t: any) => (
               <div key={t.id} className="p-4">
                 <div className="flex items-start gap-2">
                   <div
@@ -276,7 +283,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick actions */}
       <div className="grid grid-cols-4 gap-4">
         {[
           {

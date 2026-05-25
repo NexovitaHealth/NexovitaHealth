@@ -2,9 +2,10 @@
 // Multi-tenant health SaaS. All clinical data is agency-scoped.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
-  engineType = "library"
+  engineType    = "library"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -254,6 +255,7 @@ model User {
   visitTasksCompleted VisitTask[]    @relation("VisitTasksCompleted")
   visitReviews      VisitReview[]     @relation("VisitReviewsReviewedBy")
   claimsCreated     Claim[]           @relation("ClaimsCreatedBy")
+  claimPaymentsRecorded ClaimPayment[] @relation("ClaimPaymentsRecordedBy")
   claimBatchesSubmitted ClaimSubmissionBatch[] @relation("ClaimBatchesSubmittedBy")
   incidentsReported Incident[]       @relation("IncidentsReported")
   incidentsAssigned Incident[]       @relation("IncidentsAssigned")
@@ -343,6 +345,7 @@ model Organization {
   visitTasks            VisitTask[]
   visitReviews          VisitReview[]
   claims                Claim[]
+  claimPayments         ClaimPayment[]
   claimSubmissionBatches ClaimSubmissionBatch[]
   emailDeliveryLogs     EmailDeliveryLog[]
   incidents             Incident[]
@@ -1179,6 +1182,7 @@ model Claim {
   authorisation       PayerAuthorisation? @relation(fields: [authorisationId], references: [id])
   createdBy           User                @relation("ClaimsCreatedBy", fields: [createdById], references: [id])
   submissionBatch     ClaimSubmissionBatch? @relation(fields: [submissionBatchId], references: [id])
+  payments            ClaimPayment[]
 
   @@unique([orgId, claimNumber])
   @@index([orgId])
@@ -1190,6 +1194,28 @@ model Claim {
   @@index([serviceDate])
   @@index([deletedAt])
   @@map("claims")
+}
+
+model ClaimPayment {
+  id               String   @id @default(uuid())
+  orgId            String   @map("org_id")
+  claimId          String   @map("claim_id")
+  recordedById     String   @map("recorded_by_id")
+  amount           Decimal  @db.Decimal(10, 2)
+  paymentReference String?  @map("payment_reference")
+  paymentMethod    String?  @map("payment_method")
+  paidAt           DateTime @map("paid_at")
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  org              Organization @relation(fields: [orgId], references: [id])
+  claim            Claim        @relation(fields: [claimId], references: [id])
+  recordedBy       User         @relation("ClaimPaymentsRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([orgId])
+  @@index([claimId])
+  @@index([paidAt])
+  @@map("claim_payments")
 }
 
 model ClaimSubmissionBatch {

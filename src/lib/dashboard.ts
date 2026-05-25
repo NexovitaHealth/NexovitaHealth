@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { getOrgComplianceCounts } from "@/lib/compliance-counts";
 
 export async function getOrgDashboardSummary(orgId: string) {
   const startOfToday = new Date();
@@ -21,6 +22,7 @@ export async function getOrgDashboardSummary(orgId: string) {
     visitsToday,
     pendingVisitReviews,
     missedVisitsToday,
+    compliance,
   ] = await Promise.all([
     prisma.patient.count({ where: patientBase }),
     prisma.patient.count({
@@ -58,6 +60,7 @@ export async function getOrgDashboardSummary(orgId: string) {
         status: "missed",
       },
     }),
+    getOrgComplianceCounts(orgId),
   ]);
 
   return {
@@ -68,5 +71,6 @@ export async function getOrgDashboardSummary(orgId: string) {
     visitsToday,
     pendingVisitReviews,
     missedVisitsToday,
+    compliance,
   };
 }

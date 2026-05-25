@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { assertBillingUser, claimInclude } from "@/lib/billing";
+import { claimInclude } from "@/lib/billing";
 import type { ClearinghouseTransportMode } from "@/lib/clearinghouse/types";
 
 export function makeBatchNumber(orgSlug: string) {

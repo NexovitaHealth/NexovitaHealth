@@ -8,7 +8,6 @@ import {
   success,
   validationError,
 } from "@/lib/api-response";
-import { assertBillingUser } from "@/lib/billing";
 import { submitClaimBatch } from "@/lib/claim-submission";
 import { prisma } from "@/lib/prisma";
 
@@ -20,79 +19,73 @@ const submitSchema = z.object({
   transport: z.enum(["file", "sftp", "http"]).optional(),
 });
 
-export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
-  try {
-    assertBillingUser(auth);
+export const GET = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
+    try {
+      const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || 1));
+      const pageSize = Math.min(
+        50,
+        Math.max(1, Number(req.nextUrl.searchParams.get("pageSize") || 20)),
+      );
 
-    const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") || 1));
-    const pageSize = Math.min(
-      50,
-      Math.max(1, Number(req.nextUrl.searchParams.get("pageSize") || 20)),
-    );
+      const batches = await prisma.claimSubmissionBatch.findMany({
+        where: { orgId: auth.orgId! },
+        orderBy: { submittedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          submittedBy: { select: { id: true, fullName: true } },
+          _count: { select: { claims: true } },
+        },
+      });
 
-    const batches = await prisma.claimSubmissionBatch.findMany({
-      where: { orgId: auth.orgId! },
-      orderBy: { submittedAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: {
-        submittedBy: { select: { id: true, fullName: true } },
-        _count: { select: { claims: true } },
-      },
-    });
-
-    return success(batches);
-  } catch (err) {
-    if (err instanceof Error && err.message === "BILLING_FORBIDDEN") {
-      return error("Only billing users can view submission batches", 403);
+      return success(batches);
+    } catch (err) {
+      return serverError(err);
     }
-    return serverError(err);
-  }
-});
+  },
+  { permission: "billing:read" },
+);
 
-export const POST = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
-  try {
-    assertBillingUser(auth);
+export const POST = withOrgAccess(
+  async (req: NextRequest, _ctx, auth) => {
+    try {
+      const body = await req.json().catch(() => ({}));
+      const parsed = submitSchema.safeParse(body);
+      if (!parsed.success) return validationError(parsed.error);
 
-    const body = await req.json().catch(() => ({}));
-    const parsed = submitSchema.safeParse(body);
-    if (!parsed.success) return validationError(parsed.error);
+      const { batch, exportCsv, transportError, transportResult } =
+        await submitClaimBatch(auth.orgId!, auth.userId, parsed.data);
 
-    const { batch, exportCsv, transportError, transportResult } =
-      await submitClaimBatch(auth.orgId!, auth.userId, parsed.data);
+      await createAuditLog({
+        orgId: auth.orgId,
+        actorId: auth.userId,
+        action: "exported",
+        resourceType: "claim_batch",
+        resourceId: batch.id,
+        metadata: {
+          batchNumber: batch.batchNumber,
+          claimCount: batch.claimCount,
+          clearinghouseRef: batch.clearinghouseRef,
+          transportMode: batch.transportMode,
+          transportStatus: batch.transportStatus,
+          transportError,
+        },
+        req,
+      });
 
-    await createAuditLog({
-      orgId: auth.orgId,
-      actorId: auth.userId,
-      action: "exported",
-      resourceType: "claim_batch",
-      resourceId: batch.id,
-      metadata: {
-        batchNumber: batch.batchNumber,
-        claimCount: batch.claimCount,
-        clearinghouseRef: batch.clearinghouseRef,
-        transportMode: batch.transportMode,
-        transportStatus: batch.transportStatus,
+      return success({
+        batch,
+        exportCsv,
         transportError,
-      },
-      req,
-    });
-
-    return success({
-      batch,
-      exportCsv,
-      transportError,
-      transportResult,
-    });
-  } catch (err) {
-    if (err instanceof Error) {
-      if (err.message === "BILLING_FORBIDDEN") {
-        return error("Only billing users can submit claim batches", 403);
-      }
-      if (err.message === "NO_CLAIMS_TO_SUBMIT") {
+        transportResult,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === "NO_CLAIMS_TO_SUBMIT") {
         return error("No queued claims available for submission", 422);
       }
+      return serverError(err);
     }
-    return serverError(err);
-  }
-});
+  },
+  { permission: "billing:manage" },
+);

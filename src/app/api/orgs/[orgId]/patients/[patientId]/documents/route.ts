@@ -12,18 +12,9 @@ import {
 } from "@/lib/api-response";
 import { withOrgAccess } from "@/lib/middleware";
 import { getOrgPatientOrThrow } from "@/lib/visits";
-import { storage } from "@/lib/storage";
+import { storage, UploadValidationError } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
-
-const MAX_BYTES = 10 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  "application/pdf",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "text/plain",
-];
 
 export const GET = withOrgAccess(async (_req: NextRequest, ctx, auth) => {
   try {
@@ -59,15 +50,17 @@ export const POST = withOrgAccess(async (req: NextRequest, ctx, auth) => {
     if (!(file instanceof File)) {
       return error("A file is required", 400);
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      return error("File type not allowed", 400);
-    }
-    if (file.size > MAX_BYTES) {
-      return error("File must be 10MB or smaller", 400);
-    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const stored = await storage.upload(buffer, file.name, file.type);
+    let stored;
+    try {
+      stored = await storage.upload(buffer, file.name, file.type);
+    } catch (err) {
+      if (err instanceof UploadValidationError) {
+        return error(err.message, 400);
+      }
+      throw err;
+    }
 
     const document = await prisma.patientDocument.create({
       data: {

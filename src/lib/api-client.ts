@@ -139,6 +139,42 @@ function query(params?: Record<string, string | number | boolean | undefined>) {
   return value ? `?${value}` : "";
 }
 
+export type PaginationMeta = {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasMore?: boolean;
+};
+
+export type PaginatedResult<T> = {
+  items: T;
+  pagination: PaginationMeta;
+};
+
+async function paginatedGet<T>(path: string): Promise<PaginatedResult<T>> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+
+  const json = await res
+    .json()
+    .catch(() => ({ success: false, error: "Invalid response" }));
+
+  if (!res.ok) {
+    throw new ApiError(res.status, json.error ?? "Request failed", json.errors);
+  }
+
+  return {
+    items: json.data as T,
+    pagination: json.pagination as PaginationMeta,
+  };
+}
+
+export { paginatedGet };
+
 export function orgApi(orgId: string) {
   const orgBase = `/orgs/${orgId}`;
   return {
@@ -150,6 +186,13 @@ export function orgApi(orgId: string) {
         status?: string;
         riskLevel?: string;
       }) => get<any[]>(`${orgBase}/patients${query(params)}`),
+      listPaginated: (params?: {
+        page?: number;
+        pageSize?: number;
+        search?: string;
+        status?: string;
+        riskLevel?: string;
+      }) => paginatedGet<any[]>(`${orgBase}/patients${query(params)}`),
       get: (patientId: string) => get<any>(`${orgBase}/patients/${patientId}`),
       create: (data: unknown) => post<any>(`${orgBase}/patients`, data),
       update: (patientId: string, data: unknown) =>
@@ -392,7 +435,17 @@ export function orgApi(orgId: string) {
         status?: string;
         priority?: string;
         projectId?: string;
+        sortBy?: string;
+        sortOrder?: string;
       }) => get<any[]>(`${orgBase}/tasks${query(params)}`),
+      listPaginated: (params?: {
+        page?: number;
+        pageSize?: number;
+        search?: string;
+        status?: string;
+        priority?: string;
+        projectId?: string;
+      }) => paginatedGet<any[]>(`${orgBase}/tasks${query(params)}`),
       get: (taskId: string) => get<any>(`${orgBase}/tasks/${taskId}`),
       create: (data: unknown) => post<any>(`${orgBase}/tasks`, data),
       update: (taskId: string, data: unknown) =>
@@ -504,6 +557,15 @@ export function orgApi(orgId: string) {
           visitsToday: number;
           pendingVisitReviews: number;
           missedVisitsToday: number;
+          compliance: {
+            openComplianceItems: number;
+            openClinicalAlerts: number;
+            openCriticalAlerts: number;
+            openEscalations: number;
+            openIncidents: number;
+            pendingVisitReviews: number;
+            missedVisitsToday: number;
+          };
         }>(`${orgBase}/dashboard`),
     },
     compliance: {

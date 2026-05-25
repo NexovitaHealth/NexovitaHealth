@@ -153,6 +153,12 @@ export const claimInclude = {
   },
   authorisation: true,
   createdBy: { select: { id: true, fullName: true, role: true } },
+  payments: {
+    orderBy: { paidAt: "desc" },
+    include: {
+      recordedBy: { select: { id: true, fullName: true } },
+    },
+  },
 } satisfies Prisma.ClaimInclude;
 
 export async function findActiveAuthorisation(

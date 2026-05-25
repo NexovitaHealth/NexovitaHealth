@@ -172,12 +172,21 @@ npm run db:seed      # Seed demo data
 npm run db:studio    # Open Prisma Studio GUI
 ```
 
-## Production Deployment Changes
+## Production Deployment
+
+**Cloud Run + Cloudflare:** see [deploy/README.md](deploy/README.md) for the full guide (Dockerfile, Cloud Build, Cloud SQL, R2/GCS storage, Cloud Scheduler).
+
+Quick summary:
 
 1. Set all env vars (see `.env.example`)
-2. Run `npx prisma migrate deploy` (not `dev`)
-3. Run `npm run build && npm start`
-4. Set `NODE_ENV=production`
-5. Point a reverse proxy (nginx/caddy) at port 3000
+2. Use `STORAGE_PROVIDER=s3` (or `gcs`) with `S3_ENDPOINT` — not local disk
+3. Deploy via `gcloud builds submit --config=cloudbuild.yaml`
+4. Migrations run automatically in the Cloud Build pipeline (`prisma migrate deploy`)
+5. Point Cloudflare DNS at Cloud Run; set `NEXT_PUBLIC_APP_URL` to your public HTTPS URL
 
-For file uploads in production, set `STORAGE_PROVIDER=s3` and configure AWS credentials.
+Local Docker smoke test:
+
+```bash
+docker build -t nexovita .
+docker run -p 8080:8080 --env-file .env.production nexovita
+```
