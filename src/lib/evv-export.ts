@@ -1,4 +1,15 @@
-import type { VisitLog } from "@prisma/client";
+import { Prisma, type PrismaClient, type VisitLog } from "@prisma/client";
+
+const evvExportVisitInclude = {
+  patient: {
+    select: { id: true, fullName: true, insuranceNumber: true },
+  },
+  loggedBy: { select: { fullName: true } },
+} satisfies Prisma.VisitLogInclude;
+
+type EvvVisitWithRelations = Prisma.VisitLogGetPayload<{
+  include: typeof evvExportVisitInclude;
+}>;
 
 export const EVV_EXPORT_HEADERS = [
   "visit_id",
@@ -119,14 +130,8 @@ export function buildEvvExportCsv(rows: EvvExportVisitRow[]) {
   return `${header}\n${body}\n`;
 }
 
-type EvvVisitFindMany = Awaited<
-  ReturnType<typeof import("@/lib/prisma").prisma.visitLog.findMany>
->;
-
 export async function fetchEvvExportRows(
-  prisma: {
-    visitLog: { findMany: (args: object) => Promise<EvvVisitFindMany> };
-  },
+  prisma: Pick<PrismaClient, "visitLog">,
   orgId: string,
   filters: EvvExportFilters,
 ): Promise<EvvExportVisitRow[]> {
@@ -136,7 +141,7 @@ export async function fetchEvvExportRows(
 
   const verifiedOnly = filters.verifiedOnly !== false;
 
-  const visits = await prisma.visitLog.findMany({
+  const visits: EvvVisitWithRelations[] = await prisma.visitLog.findMany({
     where: {
       orgId,
       deletedAt: null,
@@ -147,21 +152,19 @@ export async function fetchEvvExportRows(
     },
     orderBy: { scheduledAt: "asc" },
     take: 5000,
-    include: {
-      patient: {
-        select: { id: true, fullName: true, insuranceNumber: true },
-      },
-      loggedBy: { select: { fullName: true } },
-    },
+    include: evvExportVisitInclude,
   });
 
-  return visits.map((v) => ({
-    visit: v,
-    patient: {
-      id: v.patient.id,
-      fullName: v.patient.fullName,
-      insuranceNumber: v.patient.insuranceNumber,
-    },
-    staff: v.loggedBy,
-  }));
+  return visits.map((v) => {
+    const { patient, loggedBy, ...visit } = v;
+    return {
+      visit: visit satisfies EvvExportVisitRow["visit"],
+      patient: {
+        id: patient.id,
+        fullName: patient.fullName,
+        insuranceNumber: patient.insuranceNumber,
+      },
+      staff: loggedBy,
+    };
+  });
 }
