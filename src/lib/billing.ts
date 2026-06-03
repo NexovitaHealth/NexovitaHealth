@@ -46,19 +46,6 @@ export function assertClinicalReviewer(
   assertClinicalReviewAccess(auth);
 }
 
-/** @deprecated Prefer assertBillingAccess(auth) */
-export function assertBillingUser(
-  auth: Pick<AuthContext, "user" | "orgRole"> | string,
-) {
-  if (typeof auth === "string") {
-    if (!["agency_admin", "billing_manager"].includes(auth)) {
-      throw new Error("BILLING_FORBIDDEN");
-    }
-    return;
-  }
-  assertBillingAccess(auth);
-}
-
 export async function ensurePendingReviewForVisit(
   orgId: string,
   visitId: string,

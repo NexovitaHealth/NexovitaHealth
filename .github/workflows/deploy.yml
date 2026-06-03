@@ -1,0 +1,103 @@
+name: Deploy to Cloud Run
+
+# Runs only after CI succeeds on main (or manual dispatch for emergencies).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Validate deploy configuration
+        run: |
+          set -euo pipefail
+          for var in GCP_PROJECT_ID GCP_REGION CLOUDSQL_INSTANCE APP_URL S3_ENDPOINT; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing GitHub Actions variable: $var"
+              exit 1
+            fi
+          done
+          for secret in GCP_WIF_PROVIDER GCP_DEPLOY_SA; do
+            if [ -z "${!secret:-}" ]; then
+              echo "::error::Missing GitHub Actions secret: $secret"
+              exit 1
+            fi
+          done
+          case "$APP_URL" in
+            https://*) ;;
+            *)
+              echo "::error::APP_URL must start with https:// (got: $APP_URL)"
+              exit 1
+              ;;
+          esac
+          case "$CLOUDSQL_INSTANCE" in
+            *:*:*) ;;
+            *)
+              echo "::error::CLOUDSQL_INSTANCE must be PROJECT:REGION:INSTANCE (got: $CLOUDSQL_INSTANCE)"
+              exit 1
+              ;;
+          esac
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUDSQL_INSTANCE: ${{ vars.CLOUDSQL_INSTANCE }}
+          APP_URL: ${{ vars.APP_URL }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          GCP_WIF_PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+          GCP_DEPLOY_SA: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Submit Cloud Build
+        run: |
+          set -euo pipefail
+          SMTP_PORT="${SMTP_PORT:-587}"
+          SMTP_SECURE="${SMTP_SECURE:-false}"
+          echo "SMTP_PORT=$SMTP_PORT SMTP_SECURE=$SMTP_SECURE"
+          gcloud builds submit \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --config=cloudbuild.yaml \
+            --substitutions=_CLOUDSQL_INSTANCE=${{ vars.CLOUDSQL_INSTANCE }},_APP_URL=${{ vars.APP_URL }},_S3_ENDPOINT=${{ vars.S3_ENDPOINT }},_REGION=${{ vars.GCP_REGION }},_SMTP_PORT=${SMTP_PORT},_SMTP_SECURE=${SMTP_SECURE}
+        env:
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_SECURE: ${{ vars.SMTP_SECURE }}
+
+      - name: Verify Cloud Run service
+        run: |
+          set -euo pipefail
+          URL="$(gcloud run services describe nexovita \
+            --project="${{ vars.GCP_PROJECT_ID }}" \
+            --region="${{ vars.GCP_REGION }}" \
+            --format='value(status.url)')"
+          echo "Service URL: $URL"
+          curl -fsS --retry 8 --retry-delay 8 --retry-connrefused \
+            "$URL/api/health" | grep -q '"status":"ok"'

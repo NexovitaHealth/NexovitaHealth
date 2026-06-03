@@ -14,9 +14,11 @@ RUN npm ci
 
 FROM base AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_APP_URL=https://example.com
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 # Prisma schema references DATABASE_URL; dummy value for image build only
 ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/nexovita?schema=public"
 RUN npx prisma generate
@@ -41,13 +43,13 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 
-RUN chmod +x ./docker-entrypoint.sh \
-  && chown -R nextjs:nodejs /app
+RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 EXPOSE 8080
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 CMD ["node", "server.js"]

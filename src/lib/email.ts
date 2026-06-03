@@ -7,17 +7,26 @@ import {
 } from "@/lib/email-delivery";
 import { prisma } from "@/lib/prisma";
 
+function smtpSecure() {
+  if (process.env.SMTP_SECURE === "true") return true;
+  if (process.env.SMTP_SECURE === "false") return false;
+  return process.env.SMTP_PORT === "465";
+}
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || "587", 10),
-  secure: process.env.SMTP_PORT === "465",
+  secure: smtpSecure(),
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
 });
 
-const FROM = process.env.EMAIL_FROM || "Nexovita Health <noreply@nexovita.com>";
+const FROM =
+  process.env.EMAIL_FROM ||
+  process.env.SMTP_FROM ||
+  "Nexovita Health <noreply@nexovita.com>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 function hasSmtpConfig() {

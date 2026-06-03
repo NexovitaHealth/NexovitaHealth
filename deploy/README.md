@@ -26,7 +26,7 @@ gcloud services enable \
 
 ### Artifact Registry (Johannesburg)
 
-GCP region **`africa-south1`** (Johannesburg). Use the same region for Cloud Run, Cloud SQL, and Scheduler so latency and egress stay local.
+GCP region `**africa-south1**` (Johannesburg). Use the same region for Cloud Run, Cloud SQL, and Scheduler so latency and egress stay local.
 
 ```bash
 export REGION=africa-south1
@@ -37,7 +37,7 @@ gcloud artifacts repositories create nexovita \
 
 ### Cloud SQL (PostgreSQL 15+)
 
-Create an instance in **`africa-south1`** (Johannesburg) and a database, then note the connection name:
+Create an instance in `**africa-south1**` (Johannesburg) and a database, then note the connection name:
 
 `PROJECT_ID:REGION:INSTANCE_NAME`
 
@@ -49,37 +49,74 @@ DATABASE_URL="postgresql://nexovita:PASSWORD@/nexovita?host=/cloudsql/PROJECT_ID
 
 ### Secret Manager
 
-Create secrets (values from `.env.example`):
+Create secrets (values from `.env.example`). Use `gcloud secrets versions add` if a secret already exists.
 
 ```bash
-echo -n 'postgresql://...' | gcloud secrets create nexovita-database-url --data-file=-
-echo -n "$(openssl rand -base64 32)" | gcloud secrets create nexovita-jwt-secret --data-file=-
-echo -n "$(openssl rand -base64 32)" | gcloud secrets create nexovita-cron-secret --data-file=-
-echo -n 'your-bucket-name' | gcloud secrets create nexovita-storage-bucket --data-file=-
-echo -n 'access-key-id' | gcloud secrets create nexovita-storage-key-id --data-file=-
-echo -n 'secret-access-key' | gcloud secrets create nexovita-storage-secret --data-file=-
+export PROJECT_ID=your-gcp-project-id
+
+# Core
+echo -n 'postgresql://...' | gcloud secrets create nexovita-database-url --project=$PROJECT_ID --data-file=-
+echo -n "$(openssl rand -base64 32)" | gcloud secrets create nexovita-jwt-secret --project=$PROJECT_ID --data-file=-
+echo -n "$(openssl rand -base64 32)" | gcloud secrets create nexovita-cron-secret --project=$PROJECT_ID --data-file=-
+echo -n 'your-bucket-name' | gcloud secrets create nexovita-storage-bucket --project=$PROJECT_ID --data-file=-
+echo -n 'access-key-id' | gcloud secrets create nexovita-storage-key-id --project=$PROJECT_ID --data-file=-
+echo -n 'secret-access-key' | gcloud secrets create nexovita-storage-secret --project=$PROJECT_ID --data-file=-
+
+# SMTP (invites, password reset) — Resend (see deploy/RESEND.md)
+echo -n 'smtp.resend.com' | gcloud secrets create nexovita-smtp-host --project=$PROJECT_ID --data-file=-
+echo -n 'resend' | gcloud secrets create nexovita-smtp-user --project=$PROJECT_ID --data-file=-
+echo -n 're_your_resend_api_key' | gcloud secrets create nexovita-smtp-pass --project=$PROJECT_ID --data-file=-
+echo -n 'Nexovita Health <no-reply@yourdomain.com>' | gcloud secrets create nexovita-email-from --project=$PROJECT_ID --data-file=-
 ```
 
-Grant the Cloud Run service account `roles/secretmanager.secretAccessor` on each secret.
+`SMTP_PORT` / `SMTP_SECURE` default to `587` / `false` (Resend STARTTLS). For port `465`, set GitHub variables `SMTP_PORT=465` and `SMTP_SECURE=true`.
+
+### Dedicated Cloud Run service accounts
+
+Do **not** use the default compute service account in production. Run once:
+
+```bash
+export GCP_PROJECT_ID=your-gcp-project-id
+chmod +x deploy/setup-gcp-runtime.sh
+./deploy/setup-gcp-runtime.sh
+```
+
+This creates:
+
+
+| Account              | Purpose                     | Secret access                                  |
+| -------------------- | --------------------------- | ---------------------------------------------- |
+| `nexovita-runtime@…` | Web service + cron handlers | All app secrets (DB, JWT, storage, SMTP, cron) |
+| `nexovita-migrate@…` | `prisma migrate deploy` job | `nexovita-database-url` only                   |
+
+
+Cloud Build / compute SAs receive `roles/iam.serviceAccountUser` on both accounts so deploy can attach them.
 
 ### Cloud Build service accounts
 
+Cloud Build (and the legacy compute default SA used by some `gcloud run` deploy paths) need:
+
 ```bash
-export PROJECT_ID=rich-compiler-497321-e6
-export PROJECT_NUMBER=1032135281020
+export PROJECT_ID=your-gcp-project-id
+export PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
 
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
-  --role="roles/cloudbuild.builds.builder"
-
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-  --role="roles/storage.objectAdmin"
-
-gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
-  --role="roles/logging.logWriter"
+for SA in \
+  "${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" \
+  "${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+do
+  for ROLE in \
+    roles/run.admin \
+    roles/artifactregistry.writer \
+    roles/logging.logWriter
+  do
+    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+      --member="serviceAccount:${SA}" \
+      --role="$ROLE" >/dev/null
+  done
+done
 ```
+
+Then run `./deploy/setup-gcp-runtime.sh` so those deployers can `actAs` `nexovita-runtime` and `nexovita-migrate`.
 
 ## 2. Object storage
 
@@ -118,24 +155,20 @@ Do **not** use `STORAGE_PROVIDER=local` on Cloud Run — the filesystem is ephem
 
 ## 3. Build and deploy
 
-Edit `cloudbuild.yaml` substitutions:
+**Recommended:** GitHub Actions CI/CD — see **[deploy/github-cicd.md](github-cicd.md)**.
 
-- `_REGION` — `africa-south1` (Johannesburg; default in `cloudbuild.yaml`)
-- `_CLOUDSQL_INSTANCE` — e.g. `my-project:africa-south1:nexovita-db`
-- Update `--update-env-vars` in the deploy step with your real `NEXT_PUBLIC_APP_URL`, `S3_ENDPOINT`, etc.
-
-Deploy:
+Manual fallback from Cloud Shell:
 
 ```bash
 gcloud builds submit --config=cloudbuild.yaml \
-  --substitutions=_CLOUDSQL_INSTANCE=PROJECT:REGION:INSTANCE
+  --substitutions=_CLOUDSQL_INSTANCE=PROJECT:africa-south1:INSTANCE,_APP_URL=https://app.example.com,_S3_ENDPOINT=https://ACCOUNT.r2.cloudflarestorage.com
 ```
 
 The pipeline:
 
-1. Builds the Docker image (tagged with `$BUILD_ID` and `latest`; `$SHORT_SHA` is only set for Git-connected triggers)
-2. Runs `prisma migrate deploy` via a Cloud Run Job
-3. Deploys the web service to Cloud Run
+1. Builds the Docker image (immutable tag `$BUILD_ID`)
+2. Runs `prisma migrate deploy` via Cloud Run Job (`nexovita-migrate` SA)
+3. Deploys the web service to Cloud Run (`nexovita-runtime` SA, SMTP + storage secrets)
 
 ### Local Docker test
 
@@ -150,8 +183,8 @@ docker run -p 8080:8080 --env-file .env.production nexovita
 2. Create a **CNAME** (proxied) pointing to the Cloud Run URL, or map a custom domain on Cloud Run and proxy through Cloudflare.
 3. SSL/TLS mode: **Full (strict)**.
 4. Cache rules:
-   - **Cache**: `/_next/static/*`
-   - **Bypass**: `/api/*`, authenticated app routes
+  - **Cache**: `/_next/static/`*
+  - **Bypass**: `/api/`*, authenticated app routes
 5. Optional: rate limit `/api/auth/*`.
 
 Set `NEXT_PUBLIC_APP_URL=https://app.yourdomain.com` on Cloud Run to match the public URL.
@@ -168,27 +201,35 @@ export GCP_PROJECT=...
 ./deploy/setup-cloud-scheduler.sh
 ```
 
-## 6. Email
+## 6. Email (Resend)
 
-Point SMTP env vars at your provider (SendGrid, Resend SMTP, Google Workspace relay, etc.). Verify SPF/DKIM on the domain managed in Cloudflare.
+Production uses **Resend SMTP** via Secret Manager (`nexovita-smtp-*`, `nexovita-email-from`). Step-by-step: **[deploy/RESEND.md](RESEND.md)**.
+
+Verify your domain in the Resend dashboard, then add DNS records in Cloudflare. After deploy, test an invite or password reset.
 
 ## 7. First deploy checklist
 
-- [ ] Cloud SQL instance running; `DATABASE_URL` secret set
-- [ ] All Secret Manager entries created
-- [ ] R2 or GCS bucket + credentials configured
-- [ ] `cloudbuild.yaml` substitutions updated
-- [ ] `gcloud builds submit` succeeded
-- [ ] Cloudflare DNS proxied to Cloud Run
-- [ ] `NEXT_PUBLIC_APP_URL` matches public URL
-- [ ] Cloud Scheduler jobs created
-- [ ] Smoke test: login, upload document, billing page loads
+- Cloud SQL instance running; `DATABASE_URL` secret set
+- All Secret Manager entries created (10 secrets, including SMTP)
+- `./deploy/setup-gcp-runtime.sh` completed
+- R2 or GCS bucket + credentials configured
+- `cloudbuild.yaml` substitutions updated
+- `gcloud builds submit` succeeded
+- Cloudflare DNS proxied to Cloud Run
+- `NEXT_PUBLIC_APP_URL` matches public URL
+- Cloud Scheduler jobs created
+- Smoke test: login, upload document, billing page loads
 
 ## Troubleshooting
 
-| Issue | Fix |
-|-------|-----|
-| Migrations fail | Check Cloud SQL connection name on Job + `--set-cloudsql-instances` |
-| Upload 500 | Verify `S3_ENDPOINT`, bucket name, and HMAC/R2 keys |
-| Session lost on login | Ensure `NEXT_PUBLIC_APP_URL` uses HTTPS; Cloudflare SSL is Full (strict) |
-| Cron 401 | `CRON_SECRET` must match Scheduler `Authorization` header |
+
+| Issue                               | Fix                                                                               |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| Migrations fail                     | Check Cloud SQL connection name on Job + `--set-cloudsql-instances`               |
+| Upload 500                          | Verify `S3_ENDPOINT`, bucket name, and HMAC/R2 keys                               |
+| Session lost on login               | Ensure `NEXT_PUBLIC_APP_URL` uses HTTPS; Cloudflare SSL is Full (strict)          |
+| Cron 401                            | `CRON_SECRET` must match Scheduler `Authorization` header                         |
+| Email skipped / SMTP not configured | Create SMTP secrets; grant `nexovita-runtime` accessor; redeploy                  |
+| Permission denied on deploy SA      | Run `setup-gcp-runtime.sh`; ensure Cloud Build SA can `actAs` runtime/migrate SAs |
+
+

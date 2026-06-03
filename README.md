@@ -174,7 +174,7 @@ npm run db:studio    # Open Prisma Studio GUI
 
 ## Production Deployment
 
-**Cloud Run + Cloudflare:** see [deploy/README.md](deploy/README.md) for the full guide (Dockerfile, Cloud Build, Cloud SQL, R2/GCS storage, Cloud Scheduler).
+**Cloud Run + Cloudflare:** see [deploy/README.md](deploy/README.md). **GitHub CI/CD:** see [deploy/github-cicd.md](deploy/github-cicd.md).
 
 Quick summary:
 

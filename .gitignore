@@ -32,13 +32,17 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+env.local
+
+# local uploads (STORAGE_PROVIDER=local)
+/storage/uploads/
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
 Feature Audit List.md
 Guidelines.md
