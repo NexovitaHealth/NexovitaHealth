@@ -119,9 +119,14 @@ export function buildEvvExportCsv(rows: EvvExportVisitRow[]) {
   return `${header}\n${body}\n`;
 }
 
+type EvvVisitFindMany = Awaited<
+  ReturnType<typeof import("@/lib/prisma").prisma.visitLog.findMany>
+>;
+
 export async function fetchEvvExportRows(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  prisma: { visitLog: { findMany: (args: object) => Promise<any[]> } },
+  prisma: {
+    visitLog: { findMany: (args: object) => Promise<EvvVisitFindMany> };
+  },
   orgId: string,
   filters: EvvExportFilters,
 ): Promise<EvvExportVisitRow[]> {
