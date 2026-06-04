@@ -148,7 +148,8 @@ If you are resetting a broken manual deploy:
 | Symptom | Fix |
 |---------|-----|
 | GitHub auth failed / attribute condition | Run `./deploy/fix-github-wif.sh` with exact `GITHUB_ORG` + `GITHUB_REPO` from your GitHub URL (e.g. `NexovitaHealth/NexovitaHealth`, not `nexovita`) |
-| Cloud Build permission denied | Grant `github-deploy` SA `roles/cloudbuild.builds.editor` + `roles/storage.objectAdmin` |
+| `forbidden from accessing the bucket …_cloudbuild` | Run `./deploy/fix-github-deploy-iam.sh` (grants `serviceUsageConsumer` + storage on `github-deploy`) |
+| Cloud Build permission denied | Same as above + [README § Cloud Build](./README.md) for build/runtime SAs |
 | Deploy health check failed | Wait for revision ready; confirm `/api/health` returns `{"status":"ok"}` |
 | Prisma migrate order error | If dev DB used old migration folder name `20260522120000_tier4_*`, align `_prisma_migrations` or reset dev DB |
 | Migrate P1001 | Fix `DATABASE_URL` secret — [socket format](#prerequisites-one-time-gcp) |

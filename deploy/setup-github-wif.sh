@@ -32,7 +32,11 @@ gcloud iam service-accounts describe "$SA_EMAIL" --project="$GCP_PROJECT_ID" >/d
     --project="$GCP_PROJECT_ID" \
     --display-name="GitHub Actions deploy"
 
-gcloud services enable iamcredentials.googleapis.com cloudbuild.googleapis.com \
+gcloud services enable \
+  iamcredentials.googleapis.com \
+  cloudbuild.googleapis.com \
+  storage.googleapis.com \
+  serviceusage.googleapis.com \
   --project="$GCP_PROJECT_ID"
 
 gcloud iam workload-identity-pools describe "$POOL_ID" \
@@ -85,15 +89,24 @@ if [ -n "$GITHUB_ENVIRONMENT" ]; then
     >/dev/null
 fi
 
-# Submits builds + uploads source; Cloud Build SA runs the pipeline (see deploy/README.md IAM).
+# Submits builds + uploads source to gs://PROJECT_cloudbuild (see deploy/fix-github-deploy-iam.sh).
 for ROLE in \
   roles/cloudbuild.builds.editor \
+  roles/serviceusage.serviceUsageConsumer \
   roles/storage.objectAdmin
 do
   gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
     --member="serviceAccount:${SA_EMAIL}" \
     --role="$ROLE" >/dev/null
 done
+
+CLOUDBUILD_BUCKET="${GCP_PROJECT_ID}_cloudbuild"
+if gcloud storage buckets describe "gs://${CLOUDBUILD_BUCKET}" --project="$GCP_PROJECT_ID" >/dev/null 2>&1; then
+  gcloud storage buckets add-iam-policy-binding "gs://${CLOUDBUILD_BUCKET}" \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/storage.objectAdmin" \
+    --project="$GCP_PROJECT_ID" >/dev/null
+fi
 
 WIF_PROVIDER="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/providers/${PROVIDER_ID}"
 
@@ -119,7 +132,9 @@ Optional variables:
   SMTP_SECURE      = false
 
 ================================================================================
-Also run: ./deploy/setup-gcp-runtime.sh
+Also run:
+  ./deploy/fix-github-deploy-iam.sh   (if gcloud builds submit bucket forbidden)
+  ./deploy/setup-gcp-runtime.sh
 Grant Cloud Build + compute SAs: roles/run.admin, roles/artifactregistry.writer
 (see deploy/README.md § Cloud Build service accounts).
 ================================================================================
