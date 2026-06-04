@@ -14,6 +14,9 @@ set -euo pipefail
 : "${GCP_PROJECT_ID:?Set GCP_PROJECT_ID}"
 : "${GITHUB_ORG:?Set GITHUB_ORG (GitHub user or org)}"
 : "${GITHUB_REPO:?Set GITHUB_REPO}"
+# Must match deploy.yml \`environment:\` (default: production)
+GITHUB_ENVIRONMENT="${GITHUB_ENVIRONMENT:-production}"
+REPO_SLUG="${GITHUB_ORG}/${GITHUB_REPO}"
 
 SA_ID="github-deploy"
 SA_EMAIL="${SA_ID}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
@@ -22,7 +25,7 @@ PROVIDER_ID="github-provider"
 PROJECT_NUMBER="$(gcloud projects describe "$GCP_PROJECT_ID" --format='value(projectNumber)')"
 
 echo "Project: $GCP_PROJECT_ID ($PROJECT_NUMBER)"
-echo "GitHub:    $GITHUB_ORG/$GITHUB_REPO"
+echo "GitHub:    $REPO_SLUG (environment: ${GITHUB_ENVIRONMENT:-none})"
 
 gcloud iam service-accounts describe "$SA_EMAIL" --project="$GCP_PROJECT_ID" >/dev/null 2>&1 || \
   gcloud iam service-accounts create "$SA_ID" \
@@ -40,23 +43,47 @@ gcloud iam workload-identity-pools describe "$POOL_ID" \
     --location=global \
     --display-name="GitHub Actions"
 
-gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
+ATTRIBUTE_CONDITION="assertion.repository=='${REPO_SLUG}'"
+if [ -n "$GITHUB_ENVIRONMENT" ]; then
+  ATTRIBUTE_CONDITION="${ATTRIBUTE_CONDITION} && assertion.environment=='${GITHUB_ENVIRONMENT}'"
+fi
+
+WIF_MAPPING="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.ref=assertion.ref,attribute.environment=assertion.environment"
+
+if gcloud iam workload-identity-pools providers describe "$PROVIDER_ID" \
   --project="$GCP_PROJECT_ID" \
   --location=global \
-  --workload-identity-pool="$POOL_ID" >/dev/null 2>&1 || \
+  --workload-identity-pool="$POOL_ID" >/dev/null 2>&1; then
+  gcloud iam workload-identity-pools providers update-oidc "$PROVIDER_ID" \
+    --project="$GCP_PROJECT_ID" \
+    --location=global \
+    --workload-identity-pool="$POOL_ID" \
+    --attribute-mapping="$WIF_MAPPING" \
+    --attribute-condition="$ATTRIBUTE_CONDITION"
+else
   gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
     --project="$GCP_PROJECT_ID" \
     --location=global \
     --workload-identity-pool="$POOL_ID" \
     --display-name="GitHub" \
-    --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.ref=assertion.ref" \
-    --attribute-condition="assertion.repository=='${GITHUB_ORG}/${GITHUB_REPO}'" \
+    --attribute-mapping="$WIF_MAPPING" \
+    --attribute-condition="$ATTRIBUTE_CONDITION" \
     --issuer-uri="https://token.actions.githubusercontent.com"
+fi
 
 gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
   --project="$GCP_PROJECT_ID" \
   --role="roles/iam.workloadIdentityUser" \
-  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/${GITHUB_ORG}/${GITHUB_REPO}"
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/${REPO_SLUG}" \
+  >/dev/null
+
+if [ -n "$GITHUB_ENVIRONMENT" ]; then
+  gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+    --project="$GCP_PROJECT_ID" \
+    --role="roles/iam.workloadIdentityUser" \
+    --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/${REPO_SLUG}/attribute.environment/${GITHUB_ENVIRONMENT}" \
+    >/dev/null
+fi
 
 # Submits builds + uploads source; Cloud Build SA runs the pipeline (see deploy/README.md IAM).
 for ROLE in \
