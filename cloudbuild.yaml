@@ -48,6 +48,11 @@ steps:
       - -c
       - |
         set -euo pipefail
+        if [ -z "${_CLOUDSQL_INSTANCE}" ]; then
+          echo "ERROR: _CLOUDSQL_INSTANCE is required (PROJECT:REGION:INSTANCE)."
+          echo "Pass --substitutions=_CLOUDSQL_INSTANCE=your-project:africa-south1:your-sql-instance"
+          exit 1
+        fi
         IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$BUILD_ID"
         MIGRATE_SA="${_MIGRATE_SA}@$PROJECT_ID.iam.gserviceaccount.com"
         CMD=(gcloud run jobs deploy ${_SERVICE}-migrate

@@ -152,6 +152,7 @@ If you are resetting a broken manual deploy:
 | Cloud Build permission denied | Same as above + [README § Cloud Build](./README.md) for build/runtime SAs |
 | Deploy health check failed | Wait for revision ready; confirm `/api/health` returns `{"status":"ok"}` |
 | Prisma migrate order error | If dev DB used old migration folder name `20260522120000_tier4_*`, align `_prisma_migrations` or reset dev DB |
+| Build step 2 (migrate) failed | Use substitutions (`./deploy/cloudbuild-submit.sh`); run `./deploy/fix-cloudbuild-runner-iam.sh` + `./deploy/setup-gcp-runtime.sh`; see Cloud Build logs |
 | Migrate P1001 | Fix `DATABASE_URL` secret — [socket format](#prerequisites-one-time-gcp) |
 | `prisma: not found` | Ensure latest `cloudbuild.yaml` uses `--command=node --args=node_modules/prisma/build/index.js,migrate,deploy` |
 | Push to Artifact Registry denied | Grant compute + cloudbuild SAs `roles/artifactregistry.writer` |
