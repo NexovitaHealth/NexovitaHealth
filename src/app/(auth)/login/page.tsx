@@ -122,37 +122,6 @@ export default function LoginPage() {
           Register your agency
         </Link>
       </p>
-
-      <div className="mt-6 pt-5 border-t border-slate-100">
-        <p className="text-xs text-slate-400 text-center mb-3 font-medium uppercase tracking-wide">
-          Demo credentials
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { label: "Admin", email: "admin@sunrise.health" },
-            { label: "Supervisor", email: "supervisor@sunrise.health" },
-            { label: "Aide", email: "aide@sunrise.health" },
-            { label: "Physician", email: "physician@sunrise.health" },
-          ].map((c) => (
-            <button
-              key={c.email}
-              type="button"
-              onClick={() => {
-                setEmail(c.email);
-                setPassword("Admin@123!");
-              }}
-              className="text-left px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
-            >
-              <span className="block text-xs font-semibold text-slate-700">
-                {c.label}
-              </span>
-              <span className="block text-xs text-slate-400 truncate">
-                {c.email}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
