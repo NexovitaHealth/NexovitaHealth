@@ -3,6 +3,7 @@ import { getSessionFromRequest } from './auth'
 import { forbidden, unauthorized } from './api-response'
 import { canUserPerform, type Permission } from './permissions'
 import { UserRole, OrgRole } from '@/types'
+import { prisma } from './prisma'
 
 export type AuthenticatedHandler = (
   req: NextRequest,
@@ -28,6 +29,8 @@ export interface AuthContext {
   }
   orgId?: string
   orgRole?: OrgRole
+  activeBranchId?: string
+  orgHasBranches?: boolean
 }
 
 /**
@@ -73,11 +76,14 @@ export function withAuth(
       return forbidden()
     }
 
+    const activeBranchId = req.headers.get('X-Branch-Id') || undefined
+
     const auth: AuthContext = {
       userId: user.id,
       user: user as AuthContext['user'],
       orgId,
       orgRole,
+      activeBranchId,
     }
 
     return handler(req, ctx, auth)
@@ -109,6 +115,11 @@ export function withOrgAccess(
     ) {
       return forbidden(`You do not have permission (${options.permission})`)
     }
-    return handler(req, ctx, auth)
+    // Only check branch existence when no specific branch is already selected,
+    // since activeBranchId being set already implies branches exist.
+    const orgHasBranches = auth.activeBranchId
+      ? true
+      : await prisma.orgBranch.count({ where: { orgId: auth.orgId!, isActive: true } }) > 0
+    return handler(req, ctx, { ...auth, orgHasBranches })
   })
 }

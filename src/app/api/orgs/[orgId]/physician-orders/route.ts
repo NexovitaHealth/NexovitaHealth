@@ -11,6 +11,7 @@ import {
   validationError,
 } from "@/lib/api-response";
 import { withOrgAccess } from "@/lib/middleware";
+import { patientBranchFilter } from "@/lib/branches";
 import { getPagination } from "@/lib/pagination";
 import {
   assertCarePlanEditor,
@@ -53,6 +54,7 @@ export const GET = withOrgAccess(
       ...(physicianId && { physicianId }),
       ...(carePlanId && { carePlanId }),
       ...(status && { status: status as "draft" }),
+      ...patientBranchFilter(auth.activeBranchId, auth.orgHasBranches),
     };
 
     const [orders, total] = await Promise.all([

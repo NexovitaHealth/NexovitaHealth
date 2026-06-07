@@ -57,21 +57,6 @@ async function main() {
     },
   });
 
-  await prisma.orgBranch.upsert({
-    where: { id: "00000000-0000-4000-8000-000000000002" },
-    update: {},
-    create: {
-      id: "00000000-0000-4000-8000-000000000002",
-      orgId: org.id,
-      name: "San Diego — Coastal",
-      city: "San Diego",
-      region: "CA",
-      phone: "+1-555-0102",
-    },
-  });
-
-  void mainBranch;
-
   // Agency Admin  (OrgRole: owner)
   const adminHash = await bcrypt.hash("Admin@123!", 12);
   const adminUser = await prisma.user.upsert({
@@ -227,6 +212,7 @@ async function main() {
     const patient = await prisma.patient.create({
       data: {
         orgId: org.id,
+        branchId: mainBranch.id,
         fullName: p.fullName,
         dateOfBirth: p.dateOfBirth,
         gender: p.gender,
@@ -434,6 +420,7 @@ async function main() {
   console.log("   Aide          →  aide@sunrise.health");
   console.log("   Physician     →  physician@sunrise.health");
   console.log(`\n🏥 Org: Sunrise Health Agency  (slug: sunrise-health)`);
+  console.log(`📍 Location: ${mainBranch.name}`);
   console.log(
     `👥 ${patientRows.length} patients · 4 tasks · 1 project · vitals + alerts seeded\n`,
   );

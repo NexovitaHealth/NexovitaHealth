@@ -7,8 +7,11 @@ import { useAuth } from "./useAuth";
  * Prefer this over raw `useApi` path strings for org routes.
  */
 export function useOrgApi() {
-  const { activeOrg } = useAuth();
+  const { activeOrg, activeBranchId } = useAuth();
   const orgId = activeOrg?.orgId;
-  const client = useMemo(() => (orgId ? orgApi(orgId) : null), [orgId]);
-  return { orgId, client };
+  const client = useMemo(
+    () => (orgId ? orgApi(orgId, activeBranchId ?? undefined) : null),
+    [orgId, activeBranchId],
+  );
+  return { orgId, client, activeBranchId };
 }

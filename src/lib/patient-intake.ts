@@ -72,7 +72,7 @@ export function validateIntakeStep(
   switch (step) {
     case "placement":
       if (options.requireBranch && !form.branchId) {
-        return "Select a care branch for this patient.";
+        return "Select a location for this patient.";
       }
       return null;
     case "identity":

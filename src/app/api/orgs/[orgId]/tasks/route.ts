@@ -38,6 +38,21 @@ export const GET = withOrgAccess(async (req, _ctx, auth) => {
         ],
       }),
       ...(assigneeId && { assignees: { some: { userId: assigneeId } } }),
+      ...(auth.activeBranchId
+        ? {
+            OR: [
+              { patient: { branchId: auth.activeBranchId } },
+              { patientId: null },
+            ],
+          }
+        : auth.orgHasBranches
+          ? {
+              OR: [
+                { patient: { branchId: { not: null } } },
+                { patientId: null },
+              ],
+            }
+          : {}),
     };
 
     const validSortFields = [

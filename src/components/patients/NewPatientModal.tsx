@@ -242,7 +242,7 @@ function StepPlacement({
       ) : requireBranch ? (
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">
-            Care branch *
+            Location *
           </label>
           <select
             required
@@ -250,7 +250,7 @@ function StepPlacement({
             onChange={(e) => set("branchId", e.target.value)}
             className="input-base"
           >
-            <option value="">Select branch</option>
+            <option value="">Select location</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -261,8 +261,8 @@ function StepPlacement({
         </div>
       ) : (
         <p className="text-sm text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
-          No branches configured for this agency. You can add branches in org
-          settings later; admission will proceed without a branch.
+          No locations configured for this agency. You can add locations in org
+          settings later; admission will proceed without a location.
         </p>
       )}
       <div>

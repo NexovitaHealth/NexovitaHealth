@@ -175,8 +175,51 @@ async function paginatedGet<T>(path: string): Promise<PaginatedResult<T>> {
 
 export { paginatedGet };
 
-export function orgApi(orgId: string) {
+export function orgApi(orgId: string, branchId?: string) {
   const orgBase = `/orgs/${orgId}`;
+
+  // Shadow the module-level request helpers so every call within this scope
+  // automatically forwards X-Branch-Id when a location is active.
+  const bh = branchId ? { 'X-Branch-Id': branchId } : {};
+  function get<T>(path: string) {
+    return request<T>(path, { method: 'GET', headers: bh });
+  }
+  function post<T>(path: string, body?: unknown) {
+    return request<T>(path, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+      headers: bh,
+    });
+  }
+  function patch<T>(path: string, body: unknown) {
+    return request<T>(path, { method: 'PATCH', body: JSON.stringify(body), headers: bh });
+  }
+  function del<T>(path: string) {
+    return request<T>(path, { method: 'DELETE', headers: bh });
+  }
+  async function paginatedGet<T>(path: string): Promise<PaginatedResult<T>> {
+    const res = await fetch(`${BASE}${path}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json', ...bh },
+      credentials: 'include',
+    });
+    const json = await res.json().catch(() => ({ success: false, error: 'Invalid response' }));
+    if (!res.ok) throw new ApiError(res.status, json.error ?? 'Request failed', (json as any).errors);
+    return { items: json.data as T, pagination: json.pagination as PaginationMeta };
+  }
+  async function download(path: string, options: RequestInit = {}): Promise<Blob> {
+    const res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers: { ...(options.headers as Record<string, string>), ...bh },
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({ error: `Request failed: ${res.status}` }));
+      throw new ApiError(res.status, (json as any).error ?? 'Request failed');
+    }
+    return res.blob();
+  }
+
   return {
     patients: {
       list: (params?: {
@@ -224,10 +267,31 @@ export function orgApi(orgId: string) {
           Array<{
             id: string;
             name: string;
+            address?: string | null;
             city?: string | null;
             region?: string | null;
+            phone?: string | null;
           }>
         >(`${orgBase}/branches`),
+      create: (data: {
+        name: string;
+        address?: string;
+        city?: string;
+        region?: string;
+        phone?: string;
+      }) => post<any>(`${orgBase}/branches`, data),
+      update: (
+        branchId: string,
+        data: {
+          name?: string;
+          address?: string;
+          city?: string;
+          region?: string;
+          phone?: string;
+        },
+      ) => patch<any>(`${orgBase}/branches/${branchId}`, data),
+      deactivate: (branchId: string) =>
+        del<{ deactivated: boolean }>(`${orgBase}/branches/${branchId}`),
     },
     search: (params: { q: string; limit?: number; assignedToMe?: boolean }) =>
       get<{
@@ -548,7 +612,7 @@ export function orgApi(orgId: string) {
         }>(`${orgBase}/physician-portal`),
     },
     dashboard: {
-      summary: () =>
+      summary: (params?: { branchId?: string }) =>
         get<{
           totalPatients: number;
           highRiskPatients: number;
@@ -566,7 +630,7 @@ export function orgApi(orgId: string) {
             pendingVisitReviews: number;
             missedVisitsToday: number;
           };
-        }>(`${orgBase}/dashboard`),
+        }>(`${orgBase}/dashboard${query(params)}`),
     },
     compliance: {
       dashboard: (params?: { trendDays?: number }) =>

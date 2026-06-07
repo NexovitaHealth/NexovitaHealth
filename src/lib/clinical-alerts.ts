@@ -33,8 +33,17 @@ export async function listOrgClinicalAlerts(
     severity?: AlertSeverity;
     patientId?: string;
     alertType?: string;
+    branchId?: string;
+    orgHasBranches?: boolean;
   },
 ) {
+  const { branchId, orgHasBranches } = params;
+  const patientBranch = branchId
+    ? { patient: { branchId } }
+    : orgHasBranches
+      ? { patient: { branchId: { not: null } } }
+      : {};
+
   const where: Prisma.ClinicalAlertWhereInput = {
     orgId,
     ...(params.patientId && { patientId: params.patientId }),
@@ -47,6 +56,7 @@ export async function listOrgClinicalAlerts(
       : params.resolved === "all"
         ? {}
         : { isResolved: false }),
+    ...patientBranch,
   };
 
   const skip = (params.page - 1) * params.pageSize;

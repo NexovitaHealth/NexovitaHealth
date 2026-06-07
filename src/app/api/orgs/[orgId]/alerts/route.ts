@@ -30,6 +30,8 @@ export const GET = withOrgAccess(
           severity: severity ?? undefined,
           patientId,
           alertType,
+          branchId: auth.activeBranchId,
+          orgHasBranches: auth.orgHasBranches,
         },
       );
 

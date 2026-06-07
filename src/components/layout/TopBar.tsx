@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { UniversalSearch } from "@/components/search/UniversalSearch";
 import { PatientListFilters } from "@/components/patients/PatientListFilters";
+import { LocationSwitcher } from "@/components/layout/LocationSwitcher";
 
 async function fetchUnreadCount() {
   const res = await fetch("/api/notifications?pageSize=1&isRead=false", {
@@ -46,6 +47,7 @@ function TopBarContent() {
       </div>
 
       <div className="flex items-center gap-3 shrink-0">
+        <LocationSwitcher />
         <Link
           href="/notifications"
           className="relative p-2 rounded-xl hover:bg-slate-50 transition-colors"

@@ -38,7 +38,7 @@ export const GET = withOrgAccess(
     );
 
     const where = {
-      ...orgLabWhere(auth.orgId!),
+      ...orgLabWhere(auth.orgId!, auth.activeBranchId, auth.orgHasBranches),
       ...(status && { status }),
       ...(search && {
         panelName: { contains: search, mode: "insensitive" as const },

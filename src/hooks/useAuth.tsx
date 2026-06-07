@@ -28,10 +28,12 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   activeOrg: User["orgMemberships"][0] | null;
+  activeBranchId: string | null;
   login: (email: string, password: string, redirectTo?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   setActiveOrg: (orgId: string) => void;
+  setActiveBranch: (id: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeOrgId, setActiveOrgId] = useState<string | null>(null);
+  const [activeBranchId, setActiveBranchIdState] = useState<string | null>(null);
   const router = useRouter();
 
   const refresh = useCallback(async () => {
@@ -56,7 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setActiveOrgId(primary.orgId);
         }
       } else {
+        // Session cookie exists but the DB session is gone (e.g. after a DB reset).
+        // Clear the stale cookie so the edge middleware stops redirecting here.
+        await fetch("/api/auth/logout", { method: "POST" });
         setUser(null);
+        router.replace("/login");
       }
     } catch {
       setUser(null);
@@ -95,6 +102,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const setActiveOrg = (orgId: string) => setActiveOrgId(orgId);
 
+  useEffect(() => {
+    if (!activeOrgId) {
+      setActiveBranchIdState(null);
+      return;
+    }
+    const stored = localStorage.getItem(`nexovita_branch_${activeOrgId}`);
+    setActiveBranchIdState(stored || null);
+  }, [activeOrgId]);
+
+  const setActiveBranch = (id: string | null) => {
+    setActiveBranchIdState(id);
+    if (activeOrgId) {
+      if (id) {
+        localStorage.setItem(`nexovita_branch_${activeOrgId}`, id);
+      } else {
+        localStorage.removeItem(`nexovita_branch_${activeOrgId}`);
+      }
+    }
+  };
+
   const activeOrg =
     user?.orgMemberships.find((m) => m.orgId === activeOrgId) ||
     user?.orgMemberships[0] ||
@@ -107,10 +134,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         activeOrg,
+        activeBranchId,
         login,
         logout,
         refresh,
         setActiveOrg,
+        setActiveBranch,
       }}
     >
       {children}

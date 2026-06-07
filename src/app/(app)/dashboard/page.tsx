@@ -47,23 +47,23 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const { user, activeOrg } = useAuth();
+  const { user, activeOrg, activeBranchId } = useAuth();
   const { client, orgId } = useOrgApi();
 
   const { data: summary } = useQuery({
-    queryKey: ["dashboard", orgId, "summary"],
-    queryFn: () => client!.dashboard.summary(),
+    queryKey: ["dashboard", orgId, "summary", activeBranchId],
+    queryFn: () => client!.dashboard.summary({ branchId: activeBranchId ?? undefined }),
     enabled: !!client,
   });
 
   const { data: patientsResult } = useQuery({
-    queryKey: ["patients", orgId, "recent"],
+    queryKey: ["patients", orgId, "recent", activeBranchId],
     queryFn: () => client!.patients.listPaginated({ pageSize: 5 }),
     enabled: !!client,
   });
 
   const { data: tasks } = useQuery({
-    queryKey: ["tasks", orgId, "recent"],
+    queryKey: ["tasks", orgId, "recent", activeBranchId],
     queryFn: () =>
       client!.tasks.list({
         pageSize: 5,

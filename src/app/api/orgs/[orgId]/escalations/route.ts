@@ -10,6 +10,7 @@ import {
   validationError,
 } from "@/lib/api-response";
 import { withOrgAccess } from "@/lib/middleware";
+import { patientBranchFilter } from "@/lib/branches";
 import { getPagination } from "@/lib/pagination";
 import {
   assertClinicalReviewer,
@@ -53,6 +54,7 @@ export const GET = withOrgAccess(
       ...(severity && {
         severity: severity as "info" | "warning" | "critical",
       }),
+      ...patientBranchFilter(auth.activeBranchId, auth.orgHasBranches),
     };
 
     const [escalations, total] = await Promise.all([

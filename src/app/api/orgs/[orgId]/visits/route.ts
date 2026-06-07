@@ -10,6 +10,7 @@ import {
   validationError,
 } from "@/lib/api-response";
 import { withOrgAccess } from "@/lib/middleware";
+import { patientBranchFilter } from "@/lib/branches";
 import {
   ensureOrgMember,
   getOrgPatientOrThrow,
@@ -63,6 +64,7 @@ export const GET = withOrgAccess(
       ...(staffId && { loggedById: staffId }),
       ...(patientId && { patientId }),
       ...(Object.keys(scheduledAt).length ? { scheduledAt } : {}),
+      ...patientBranchFilter(auth.activeBranchId, auth.orgHasBranches),
     };
 
     const [visits, total] = await Promise.all([

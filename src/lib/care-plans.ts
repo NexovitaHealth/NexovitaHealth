@@ -34,13 +34,15 @@ export type ListOrgCarePlansOptions = {
   status?: string;
   search?: string;
   unsignedOnly?: boolean;
+  branchId?: string;
+  orgHasBranches?: boolean;
 };
 
 export async function listOrgCarePlans(
   orgId: string,
   options: ListOrgCarePlansOptions,
 ) {
-  const { page, pageSize, patientId, status, search, unsignedOnly } = options;
+  const { page, pageSize, patientId, status, search, unsignedOnly, branchId, orgHasBranches } = options;
   const skip = (page - 1) * pageSize;
 
   const where: Prisma.CarePlanWhereInput = {
@@ -59,6 +61,11 @@ export async function listOrgCarePlans(
         },
       ],
     }),
+    ...(branchId
+      ? { patient: { branchId } }
+      : orgHasBranches
+        ? { patient: { branchId: { not: null } } }
+        : {}),
   };
 
   const [items, total, unsignedCount] = await Promise.all([

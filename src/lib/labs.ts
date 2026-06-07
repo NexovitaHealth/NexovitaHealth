@@ -17,9 +17,18 @@ export const labOrderInclude = {
   },
 } satisfies Prisma.LabOrderInclude;
 
-export function orgLabWhere(orgId: string): Prisma.LabOrderWhereInput {
+export function orgLabWhere(
+  orgId: string,
+  branchId?: string,
+  orgHasBranches?: boolean,
+): Prisma.LabOrderWhereInput {
+  const branchClause = branchId
+    ? { branchId }
+    : orgHasBranches
+      ? { branchId: { not: null } }
+      : {};
   return {
-    patient: { orgId, deletedAt: null },
+    patient: { orgId, deletedAt: null, ...branchClause },
   };
 }
 

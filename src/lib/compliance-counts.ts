@@ -15,11 +15,24 @@ export type OrgComplianceCounts = {
 
 export async function getOrgComplianceCounts(
   orgId: string,
+  opts?: { branchId?: string; orgHasBranches?: boolean },
 ): Promise<OrgComplianceCounts> {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
+
+  const { branchId, orgHasBranches } = opts ?? {};
+  const patientBranch = branchId
+    ? { patient: { branchId } }
+    : orgHasBranches
+      ? { patient: { branchId: { not: null } } }
+      : {};
+  const visitLogPatientBranch = branchId
+    ? { visitLog: { patient: { branchId } } }
+    : orgHasBranches
+      ? { visitLog: { patient: { branchId: { not: null } } } }
+      : {};
 
   const [
     alertsBySeverity,
@@ -30,7 +43,7 @@ export async function getOrgComplianceCounts(
   ] = await Promise.all([
     prisma.clinicalAlert.groupBy({
       by: ["severity"],
-      where: { orgId, isResolved: false },
+      where: { orgId, isResolved: false, ...patientBranch },
       _count: { _all: true },
     }),
     prisma.escalation.count({
@@ -38,6 +51,7 @@ export async function getOrgComplianceCounts(
         orgId,
         deletedAt: null,
         status: { in: [...OPEN_ESCALATION] },
+        ...patientBranch,
       },
     }),
     prisma.incident.count({
@@ -45,10 +59,11 @@ export async function getOrgComplianceCounts(
         orgId,
         deletedAt: null,
         status: { in: [...OPEN_INCIDENT] },
+        ...patientBranch,
       },
     }),
     prisma.visitReview.count({
-      where: { orgId, status: "pending" },
+      where: { orgId, status: "pending", ...visitLogPatientBranch },
     }),
     prisma.visitLog.count({
       where: {
@@ -56,6 +71,7 @@ export async function getOrgComplianceCounts(
         deletedAt: null,
         scheduledAt: { gte: startOfToday, lte: endOfToday },
         status: "missed",
+        ...patientBranch,
       },
     }),
   ]);

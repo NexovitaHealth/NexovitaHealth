@@ -47,6 +47,8 @@ export const GET = withOrgAccess(
         status,
         search,
         unsignedOnly,
+        branchId: auth.activeBranchId,
+        orgHasBranches: auth.orgHasBranches,
       });
 
       return NextResponse.json({

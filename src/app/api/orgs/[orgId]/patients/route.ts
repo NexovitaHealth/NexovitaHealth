@@ -12,7 +12,7 @@ import {
 import { createAuditLog } from "@/lib/audit";
 import { getPagination, getSearchParams } from "@/lib/pagination";
 import { parseAssignedToMeFilter } from "@/lib/patient-list-scope";
-import { getOrgBranchOrThrow } from "@/lib/branches";
+import { branchFilter, getOrgBranchOrThrow } from "@/lib/branches";
 import {
   buildPatientCreateData,
   createPatientSchema,
@@ -54,6 +54,7 @@ export const GET = withOrgAccess(
       }),
       ...(status && { status: status as "intake" }),
       ...(riskLevel && { riskLevel }),
+      ...branchFilter(auth.activeBranchId, auth.orgHasBranches),
     };
 
     const [patients, total] = await Promise.all([
@@ -106,9 +107,16 @@ export const POST = withOrgAccess(
         await getOrgBranchOrThrow(auth.orgId!, parsed.data.branchId);
       } catch (err) {
         if (err instanceof Error && err.message === "BRANCH_NOT_FOUND") {
-          return error("Selected branch is not available for this organization", 400);
+          return error("Selected location is not available for this organization", 400);
         }
         throw err;
+      }
+    } else {
+      const branchCount = await prisma.orgBranch.count({
+        where: { orgId: auth.orgId!, isActive: true },
+      });
+      if (branchCount > 0) {
+        return error("A location must be selected for this patient", 422);
       }
     }
 

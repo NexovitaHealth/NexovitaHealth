@@ -5,9 +5,10 @@ import { getOrgDashboardSummary } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withOrgAccess(async (_req: NextRequest, _ctx, auth) => {
+export const GET = withOrgAccess(async (req: NextRequest, _ctx, auth) => {
   try {
-    const summary = await getOrgDashboardSummary(auth.orgId!);
+    const branchId = req.nextUrl.searchParams.get("branchId") || undefined;
+    const summary = await getOrgDashboardSummary(auth.orgId!, branchId, auth.orgHasBranches);
     return success(summary);
   } catch (err) {
     return serverError(err);

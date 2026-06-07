@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withOrgAccess } from "@/lib/middleware";
+import { patientBranchFilter } from "@/lib/branches";
 import { prisma } from "@/lib/prisma";
 import { success, serverError } from "@/lib/api-response";
 import { processMissedVisitsForOrg } from "@/lib/missed-visits";
@@ -28,6 +29,7 @@ export const GET = withOrgAccess(async (req: NextRequest, ctx, auth) => {
         ...(Object.keys(scheduledAtFilter).length
           ? { scheduledAt: scheduledAtFilter }
           : {}),
+        ...patientBranchFilter(auth.activeBranchId, auth.orgHasBranches),
       },
       include: {
         patient: { select: { id: true, fullName: true } },
