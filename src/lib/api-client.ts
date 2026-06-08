@@ -180,7 +180,7 @@ export function orgApi(orgId: string, branchId?: string) {
 
   // Shadow the module-level request helpers so every call within this scope
   // automatically forwards X-Branch-Id when a location is active.
-  const bh = branchId ? { 'X-Branch-Id': branchId } : {};
+  const bh: Record<string, string> = branchId ? { 'X-Branch-Id': branchId } : {};
   function get<T>(path: string) {
     return request<T>(path, { method: 'GET', headers: bh });
   }
