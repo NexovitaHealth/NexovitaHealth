@@ -15,7 +15,7 @@ export function assertFamilyCaregiverManager(
   }
   const role = roleOrAuth as UserRole;
   const orgOk = orgRole && ["owner", "admin"].includes(orgRole);
-  const userOk = ["agency_admin", "supervisor", "superadmin"].includes(role);
+  const userOk = ["agency_admin", "supervisor", "owner"].includes(role);
   if (!orgOk && !userOk) {
     throw new Error("FAMILY_CAREGIVER_FORBIDDEN");
   }

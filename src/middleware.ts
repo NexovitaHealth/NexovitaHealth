@@ -35,6 +35,13 @@ export async function middleware(req: NextRequest) {
   }
 
   if (
+    session.role === "owner" &&
+    !pathname.startsWith("/admin")
+  ) {
+    return NextResponse.redirect(new URL("/admin", req.url));
+  }
+
+  if (
     session.role &&
     isPhysicianPortalRole(session.role) &&
     (pathname === "/dashboard" || pathname.startsWith("/dashboard/"))

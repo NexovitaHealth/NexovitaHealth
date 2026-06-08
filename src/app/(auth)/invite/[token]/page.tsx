@@ -18,7 +18,7 @@ export default function InviteAcceptPage() {
   const params = useParams();
   const token = params.token as string;
   const router = useRouter();
-  const { user, isLoading: authLoading, refresh } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [loadError, setLoadError] = useState("");
   const [acceptError, setAcceptError] = useState("");
@@ -50,8 +50,7 @@ export default function InviteAcceptPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Could not accept invitation");
       setAccepted(true);
-      await refresh();
-      setTimeout(() => router.push("/dashboard"), 1500);
+      setTimeout(() => router.push("/login"), 1500);
     } catch (err) {
       setAcceptError(err instanceof Error ? err.message : "Accept failed");
     } finally {
@@ -85,7 +84,7 @@ export default function InviteAcceptPage() {
         <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto mb-3" />
         <h1 className="text-xl font-bold text-slate-900">You&apos;re in!</h1>
         <p className="text-sm text-slate-600 mt-2">
-          Welcome to {preview.orgName}. Redirecting…
+          Welcome to {preview.orgName}. Redirecting to sign in…
         </p>
       </div>
     );

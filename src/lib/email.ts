@@ -180,6 +180,39 @@ export async function sendInvitationEmail(params: {
   });
 }
 
+export async function sendAgencySetupEmail(params: {
+  email: string;
+  senderName: string;
+  token: string;
+}): Promise<void> {
+  const setupUrl = `${APP_URL}/setup-agency?token=${params.token}`;
+
+  await sendMail({
+    to: params.email,
+    subject: "You've been invited to set up an agency on Nexovita Health",
+    template: "agency_invitation",
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #028090;">Set up your agency on Nexovita Health</h2>
+        <p><strong>${params.senderName}</strong> has invited you to create and manage your own agency on Nexovita Health.</p>
+        <p>Click the button below to set up your account and agency. The link expires in 30 days.</p>
+        <a href="${setupUrl}" style="
+          display: inline-block;
+          background: #028090;
+          color: white;
+          padding: 12px 28px;
+          border-radius: 8px;
+          text-decoration: none;
+          margin: 20px 0;
+          font-weight: 600;
+        ">Set Up My Agency</a>
+        <p style="color: #666; font-size: 13px;">Or copy this link into your browser:<br/>${setupUrl}</p>
+        <p style="color: #999; font-size: 12px;">If you did not expect this invitation, you can safely ignore this email.</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendEmailVerification(
   email: string,
   token: string,

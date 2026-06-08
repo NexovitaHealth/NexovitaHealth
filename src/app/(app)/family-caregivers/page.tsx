@@ -39,7 +39,7 @@ export default function FamilyCaregiversPage() {
 
   const canManage =
     ["owner", "admin"].includes(activeOrg?.role || "") ||
-    ["agency_admin", "supervisor", "superadmin"].includes(user?.role || "");
+    ["agency_admin", "supervisor", "owner"].includes(user?.role || "");
 
   const { data, isLoading } = useQuery({
     queryKey: ["family-caregivers", orgId],

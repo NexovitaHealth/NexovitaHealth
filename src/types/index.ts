@@ -5,7 +5,7 @@
  */
 
 export type UserRole =
-  | 'superadmin'
+  | 'owner'
   | 'agency_admin'
   | 'supervisor'
   | 'physician'
@@ -144,7 +144,7 @@ export type PayerAuthorisationStatus =
 
 // Role label maps for display
 export const USER_ROLE_LABELS: Record<UserRole, string> = {
-  superadmin: 'Super Admin',
+  owner: 'Platform Owner',
   agency_admin: 'Agency Admin',
   supervisor: 'Supervisor',
   physician: 'Physician',

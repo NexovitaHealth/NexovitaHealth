@@ -6,16 +6,30 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Seeding database...");
 
-  // Superadmin
-  const superHash = await bcrypt.hash("Admin@123!", 12);
+  // Platform owner
+  const superHashSadiq = await bcrypt.hash("Admin@123!", 12);
   await prisma.user.upsert({
-    where: { email: "superadmin@nexovita.health" },
+    where: { email: "sadiqsuperadmin@nexovita.health" },
     update: {},
     create: {
-      email: "superadmin@nexovita.health",
-      passwordHash: superHash,
-      fullName: "Platform Admin",
-      role: "superadmin",
+      email: "sadiqsuperadmin@nexovita.health",
+      passwordHash: superHashSadiq,
+      fullName: "Platform Admin - Sadiq",
+      role: "owner",
+      emailVerified: true,
+    },
+  });
+
+  // Platform owner
+  const superHashKlems = await bcrypt.hash("Admin@123!", 12);
+  await prisma.user.upsert({
+    where: { email: "klemssuperadmin@nexovita.health" },
+    update: {},
+    create: {
+      email: "klemssuperadmin@nexovita.health",
+      passwordHash: superHashKlems,
+      fullName: "Platform Admin - Klems",
+      role: "owner",
       emailVerified: true,
     },
   });
@@ -375,6 +389,22 @@ async function main() {
     ],
   });
 
+  // Sample registration token (for testing the invite flow)
+  const sampleInviteToken = "00000000-0000-4000-8000-000000000099";
+  await prisma.invitation.upsert({
+    where: { token: sampleInviteToken },
+    update: {},
+    create: {
+      orgId: org.id,
+      invitedBy: adminUser.id,
+      email: "newstaff@sunrise.health",
+      role: "member",
+      token: sampleInviteToken,
+      status: "pending",
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    },
+  });
+
   // Audit log seed entries
   await prisma.auditLog.createMany({
     data: [
@@ -413,22 +443,26 @@ async function main() {
     ],
   });
 
-  console.log("\n✅ Seed complete!\n");
-  console.log("📋 Demo accounts (password: Admin@123!)");
+  console.log("\n Seed complete!\n");
+  console.log(" Demo accounts (password: Admin@123!)");
   console.log("   Agency Admin  →  admin@sunrise.health");
   console.log("   Supervisor    →  supervisor@sunrise.health");
   console.log("   Aide          →  aide@sunrise.health");
   console.log("   Physician     →  physician@sunrise.health");
-  console.log(`\n🏥 Org: Sunrise Health Agency  (slug: sunrise-health)`);
+  console.log(`\n Org: Sunrise Health Agency  (slug: sunrise-health)`);
   console.log(`📍 Location: ${mainBranch.name}`);
   console.log(
-    `👥 ${patientRows.length} patients · 4 tasks · 1 project · vitals + alerts seeded\n`,
+    `👥 ${patientRows.length} patients · 4 tasks · 1 project · vitals + alerts seeded`,
   );
+  console.log(
+    `\n🔗 Sample invite token (newstaff@sunrise.health, 30-day expiry):`,
+  );
+  console.log(`   http://localhost:3000/invite/${sampleInviteToken}\n`);
 }
 
 main()
   .catch((e) => {
-    console.error("\n❌ Seed failed:", e);
+    console.error("\n Seed failed:", e);
     process.exit(1);
   })
   .finally(() => prisma.$disconnect());

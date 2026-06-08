@@ -59,11 +59,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setActiveOrgId(primary.orgId);
         }
       } else {
-        // Session cookie exists but the DB session is gone (e.g. after a DB reset).
-        // Clear the stale cookie so the edge middleware stops redirecting here.
+        // Clear any stale session cookie (e.g. after a DB reset) so the edge
+        // middleware stops letting through an expired JWT. Don't redirect here —
+        // protected layouts already redirect when isAuthenticated is false, and
+        // public pages (invite, portal) should stay accessible to guests.
         await fetch("/api/auth/logout", { method: "POST" });
         setUser(null);
-        router.replace("/login");
       }
     } catch {
       setUser(null);

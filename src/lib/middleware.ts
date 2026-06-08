@@ -91,6 +91,20 @@ export function withAuth(
 }
 
 /**
+ * withPlatformOwner - requires user.role === 'owner' (platform-level admin)
+ */
+export function withPlatformOwner(
+  handler: (req: NextRequest, ctx: RouteContext, auth: AuthContext) => Promise<NextResponse>
+) {
+  return withAuth(async (req, ctx, auth) => {
+    if (auth.user.role !== 'owner') {
+      return forbidden('Platform owner access required')
+    }
+    return handler(req, ctx, auth)
+  })
+}
+
+/**
  * withOrgAccess - ensures user is a member of the org
  */
 export type OrgAccessOptions = {

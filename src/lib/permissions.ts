@@ -194,7 +194,6 @@ export const PERMISSIONS = {
   "caregiver:manage": [
     "agency_admin",
     "supervisor",
-    "superadmin",
     "owner",
     "admin",
   ],
@@ -254,9 +253,9 @@ export const PERMISSIONS = {
   ],
   "billing:export": ["agency_admin", "billing_manager", "owner", "admin"],
 
-  "audit:read": ["agency_admin", "superadmin", "owner", "admin"],
-  "user:manage": ["agency_admin", "superadmin", "owner", "admin"],
-  "email:admin": ["agency_admin", "superadmin", "owner", "admin"],
+  "audit:read": ["agency_admin", "owner", "admin"],
+  "user:manage": ["agency_admin", "owner", "admin"],
+  "email:admin": ["agency_admin", "owner", "admin"],
 
   "message:read": [
     "agency_admin",
@@ -309,6 +308,8 @@ export const PERMISSIONS = {
     "owner",
     "admin",
   ],
+
+  "owner:portal": ["owner"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -325,7 +326,7 @@ export function canUserPerform(
 }
 
 export const ROLE_LABELS: Record<string, string> = {
-  superadmin: "Platform Admin",
+  owner: "Platform Owner",
   agency_admin: "Agency Admin",
   supervisor: "Supervisor",
   physician: "Physician",

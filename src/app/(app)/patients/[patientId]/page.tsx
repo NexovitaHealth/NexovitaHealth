@@ -111,7 +111,7 @@ export default function PatientChartPage() {
 
   const canIssuePortal =
     ["owner", "admin"].includes(activeOrg?.role || "") ||
-    ["agency_admin", "supervisor", "superadmin"].includes(user?.role || "");
+    ["agency_admin", "supervisor", "owner"].includes(user?.role || "");
 
   const issuePortalMutation = useMutation({
     mutationFn: () =>

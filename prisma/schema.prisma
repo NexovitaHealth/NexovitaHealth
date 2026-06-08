@@ -14,7 +14,7 @@ datasource db {
 // ENUMS
 
 enum UserRole {
-  superadmin
+  owner
   agency_admin
   supervisor
   physician
@@ -239,6 +239,7 @@ model User {
   tasksCreated      Task[]          @relation("TaskCreatedBy")
   fileUploads       FileAttachment[]
   invitationsSent   Invitation[]    @relation("InvitedBy")
+  agencyInvitationsSent AgencyInvitation[] @relation("AgencyInvitationsSent")
   sentMessages      Message[]       @relation("MessageSender")
   messageThreads    MessageThreadParticipant[]
   vitalReadings     PatientVital[]  @relation("VitalRecordedBy")
@@ -351,6 +352,7 @@ model Organization {
   payerAuthorisations   PayerAuthorisation[]
   fileAttachments       FileAttachment[]
   portalAccessTokens    PortalAccessToken[]
+  agencyInvitations     AgencyInvitation[]  @relation("AgencyInvitationsOrg")
 
   @@index([slug])
   @@index([deletedAt])
@@ -394,6 +396,25 @@ model Invitation {
   @@index([email])
   @@index([orgId])
   @@map("invitations")
+}
+
+model AgencyInvitation {
+  id         String           @id @default(uuid())
+  token      String           @unique @default(uuid())
+  email      String
+  sentBy     String           @map("sent_by")
+  status     InvitationStatus @default(pending)
+  expiresAt  DateTime         @map("expires_at")
+  acceptedAt DateTime?        @map("accepted_at")
+  orgId      String?          @map("org_id")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  sender     User              @relation("AgencyInvitationsSent", fields: [sentBy], references: [id])
+  org        Organization?     @relation("AgencyInvitationsOrg", fields: [orgId], references: [id])
+
+  @@index([token])
+  @@index([email])
+  @@map("agency_invitations")
 }
 
 model OrgBranch {

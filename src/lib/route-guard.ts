@@ -30,6 +30,7 @@ export const PAGE_PERMISSIONS: Record<string, Permission> = {
   "/messages": "message:read",
   "/vitals": "vital:read",
   "/labs": "lab:read",
+  "/admin": "owner:portal",
 };
 
 export function getPagePermission(pathname: string): Permission | undefined {
@@ -51,6 +52,7 @@ const AUTH_PATHS = new Set([
   "/register",
   "/forgot-password",
   "/reset-password",
+  "/setup-agency",
 ]);
 
 const PUBLIC_PREFIXES = [

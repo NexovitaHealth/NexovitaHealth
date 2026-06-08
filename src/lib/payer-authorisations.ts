@@ -28,7 +28,7 @@ export function assertPayerAuthReader(
 ) {
   if (typeof auth === "string") {
     if (
-      !["agency_admin", "billing_manager", "supervisor", "superadmin"].includes(
+      !["agency_admin", "billing_manager", "supervisor", "owner"].includes(
         auth,
       )
     ) {

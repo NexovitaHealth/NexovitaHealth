@@ -114,13 +114,7 @@ export default function LoginPage() {
       </form>
 
       <p className="text-center text-sm text-slate-500 mt-6">
-        Need an account?{" "}
-        <Link
-          href="/register"
-          className="text-[#028090] hover:text-[#026f7c] font-medium"
-        >
-          Register your agency
-        </Link>
+        No account? Contact your agency administrator for an invite.
       </p>
     </div>
   );

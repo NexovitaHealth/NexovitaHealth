@@ -28,5 +28,6 @@ export const PHYSICIAN_NAV_HREFS = new Set([
 ]);
 
 export function getStaffHomePath(role: string | undefined | null) {
+  if (role === 'owner') return '/admin';
   return isPhysicianPortalRole(role) ? "/physician" : "/dashboard";
 }
