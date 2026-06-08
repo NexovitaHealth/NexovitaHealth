@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -18,9 +18,8 @@ type InvitePreview = {
   expiresAt: string;
 };
 
-export default function SetupAgencyPage() {
+function SetupAgencyContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const token = searchParams.get("token") ?? "";
 
   const [preview, setPreview] = useState<InvitePreview | null>(null);
@@ -130,7 +129,6 @@ export default function SetupAgencyPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Account section */}
         <div className="space-y-3">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Your account</p>
 
@@ -180,7 +178,6 @@ export default function SetupAgencyPage() {
           </div>
         </div>
 
-        {/* Agency section */}
         <div className="space-y-3 pt-1">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Agency details</p>
 
@@ -198,7 +195,9 @@ export default function SetupAgencyPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">City <span className="text-slate-400 font-normal">(optional)</span></label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                City <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
               <input
                 type="text"
                 value={city}
@@ -208,7 +207,9 @@ export default function SetupAgencyPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">State <span className="text-slate-400 font-normal">(optional)</span></label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                State <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
               <input
                 type="text"
                 value={region}
@@ -240,5 +241,19 @@ export default function SetupAgencyPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function SetupAgencyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 flex justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-[#028090]" />
+        </div>
+      }
+    >
+      <SetupAgencyContent />
+    </Suspense>
   );
 }

@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   const login = async (email: string, password: string, redirectTo?: string) => {
     const res = await fetch("/api/auth/login", {

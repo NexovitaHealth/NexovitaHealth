@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X, Calendar, Loader2 } from "lucide-react";
 import { useApi } from "@/hooks/useApi";
@@ -89,9 +89,12 @@ export function VisitScheduleModal({
     enabled: !!orgId,
   });
 
-  const patients =
-    (patientsData?.data as Array<{ id: string; fullName: string; address?: string | null }>) ??
-    [];
+  const patients = useMemo(
+    () =>
+      (patientsData?.data as Array<{ id: string; fullName: string; address?: string | null }>) ??
+      [],
+    [patientsData?.data],
+  );
   const members = (
     (membersData?.data as Array<{
       id: string;

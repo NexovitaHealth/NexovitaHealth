@@ -37,22 +37,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return json.data as T;
 }
 
-async function download(path: string, options: RequestInit = {}): Promise<Blob> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    credentials: "include",
-  });
-
-  if (!res.ok) {
-    const json = await res
-      .json()
-      .catch(() => ({ error: `Request failed: ${res.status}` }));
-    throw new ApiError(res.status, json.error ?? "Request failed");
-  }
-
-  return res.blob();
-}
-
 function get<T>(path: string) {
   return request<T>(path, { method: "GET" });
 }
@@ -66,10 +50,6 @@ function post<T>(path: string, body?: unknown) {
 
 function patch<T>(path: string, body: unknown) {
   return request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
-}
-
-function del<T>(path: string) {
-  return request<T>(path, { method: "DELETE" });
 }
 
 // =============================================
@@ -1018,7 +998,7 @@ export const portal = {
 };
 
 export { ApiError };
-export default {
+const apiClient = {
   auth,
   notifications,
   settings,
@@ -1043,3 +1023,5 @@ export default {
   portalAccess,
   portal,
 };
+
+export default apiClient;
