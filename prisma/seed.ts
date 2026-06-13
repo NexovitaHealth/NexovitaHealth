@@ -1,3 +1,5 @@
+// Do not commit this file
+
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
