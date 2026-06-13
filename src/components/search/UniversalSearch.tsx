@@ -130,7 +130,12 @@ export function UniversalSearch({
     <div ref={containerRef} className={className}>
       <form onSubmit={handleSubmit}>
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-        <div role="combobox" aria-expanded={showPanel} aria-owns="universal-search-results" aria-haspopup="listbox">
+        <div
+          role="combobox"
+          aria-expanded={showPanel}
+          aria-controls="universal-search-results"
+          aria-haspopup="listbox"
+        >
           <input
             type="text"
             placeholder={
@@ -146,7 +151,6 @@ export function UniversalSearch({
             onFocus={() => setOpen(true)}
             className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#028090]/20 focus:border-[#028090] focus:bg-white transition-all"
             autoComplete="off"
-            aria-controls="universal-search-results"
           />
         </div>
       </form>

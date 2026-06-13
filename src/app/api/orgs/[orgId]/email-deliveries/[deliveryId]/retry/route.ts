@@ -3,7 +3,7 @@ import { withOrgAccess } from "@/lib/middleware";
 import { createAuditLog } from "@/lib/audit";
 import { error, serverError, success } from "@/lib/api-response";
 import { retryEmailDelivery } from "@/lib/email-delivery";
-import { resendDeliveryLog } from "@/lib/email";
+import { retryDeliveryEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export const POST = withOrgAccess(async (req: NextRequest, ctx, auth) => {
 
     let resent = queued;
     try {
-      resent = await resendDeliveryLog(queued.id);
+      resent = await retryDeliveryEmail(queued.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Retry failed";
       return error(message, 422);

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { error, serverError, success } from "@/lib/api-response";
 import { assertCronSecret, CronAuthError } from "@/lib/cron-auth";
 import { getDeliveriesReadyForRetry } from "@/lib/email-delivery";
-import { resendDeliveryLog } from "@/lib/email";
+import { retryDeliveryEmail } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     for (const log of pending) {
       try {
-        await resendDeliveryLog(log.id);
+        await retryDeliveryEmail(log.id);
         results.push({ id: log.id, ok: true });
       } catch (err) {
         results.push({

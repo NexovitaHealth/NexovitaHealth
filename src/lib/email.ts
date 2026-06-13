@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import {
   createEmailDeliveryLog,
   markEmailFailed,
@@ -7,51 +7,36 @@ import {
 } from "@/lib/email-delivery";
 import { prisma } from "@/lib/prisma";
 
-function smtpSecure() {
-  if (process.env.SMTP_SECURE === "true") return true;
-  if (process.env.SMTP_SECURE === "false") return false;
-  return process.env.SMTP_PORT === "465";
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY);
 }
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || "587", 10),
-  secure: smtpSecure(),
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
 const FROM =
-  process.env.EMAIL_FROM ||
-  process.env.SMTP_FROM ||
-  "Nexovita Health <noreply@nexovita.com>";
+  process.env.EMAIL_FROM || "Nexovita Health <no-reply@nexovita.health>";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-function hasSmtpConfig() {
-  return Boolean(
-    process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
-  );
+function hasResendConfig() {
+  return Boolean(process.env.RESEND_API_KEY);
 }
 
 export async function deliverTrackedEmail(payload: TrackedEmailPayload) {
   const log = await createEmailDeliveryLog(payload);
 
-  if (!hasSmtpConfig()) {
-    console.warn(`[Email] SMTP is not configured; skipped email to ${payload.to}`);
-    await markEmailFailed(log.id, "SMTP not configured");
+  if (!hasResendConfig()) {
+    console.warn(`[Email] RESEND_API_KEY is not set; skipped email to ${payload.to}`);
+    await markEmailFailed(log.id, "RESEND_API_KEY not configured");
     return log;
   }
 
   try {
-    const result = await transporter.sendMail({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: payload.to,
       subject: payload.subject,
       html: payload.html,
     });
-    await markEmailSent(log.id, result.messageId);
+    if (error) throw new Error(error.message);
+    await markEmailSent(log.id, data?.id);
     return log;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Send failed";
@@ -60,7 +45,7 @@ export async function deliverTrackedEmail(payload: TrackedEmailPayload) {
   }
 }
 
-export async function resendDeliveryLog(deliveryId: string) {
+export async function retryDeliveryEmail(deliveryId: string) {
   const log = await prisma.emailDeliveryLog.findUnique({
     where: { id: deliveryId },
   });
@@ -76,19 +61,20 @@ export async function resendDeliveryLog(deliveryId: string) {
   const html = typeof meta.html === "string" ? meta.html : null;
   if (!html) throw new Error("NO_PAYLOAD");
 
-  if (!hasSmtpConfig()) {
-    await markEmailFailed(log.id, "SMTP not configured");
-    throw new Error("SMTP_NOT_CONFIGURED");
+  if (!hasResendConfig()) {
+    await markEmailFailed(log.id, "RESEND_API_KEY not configured");
+    throw new Error("RESEND_NOT_CONFIGURED");
   }
 
   try {
-    const result = await transporter.sendMail({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: log.to,
       subject: log.subject,
       html,
     });
-    return markEmailSent(log.id, result.messageId);
+    if (error) throw new Error(error.message);
+    return markEmailSent(log.id, data?.id);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Send failed";
     await markEmailFailed(log.id, message);
@@ -126,17 +112,18 @@ export async function sendPasswordResetEmail(
     template: "password_reset",
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1a5276;">Password Reset Request</h2>
+        <h2 style="color: #028090;">Password Reset Request</h2>
         <p>You requested a password reset for your Nexovita Health account.</p>
         <p>Click the link below to set a new password. This link expires in 1 hour.</p>
         <a href="${resetUrl}" style="
           display: inline-block;
-          background: #1a5276;
+          background: #028090;
           color: white;
           padding: 12px 24px;
-          border-radius: 6px;
+          border-radius: 8px;
           text-decoration: none;
           margin: 16px 0;
+          font-weight: 600;
         ">Reset Password</a>
         <p style="color: #666; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
@@ -163,16 +150,17 @@ export async function sendInvitationEmail(params: {
     orgId: params.orgId,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1a5276;">You're invited!</h2>
+        <h2 style="color: #028090;">You're invited!</h2>
         <p><strong>${params.inviterName}</strong> has invited you to join <strong>${params.agencyName}</strong> on Nexovita Health as a <strong>${params.role.replace("_", " ")}</strong>.</p>
         <a href="${acceptUrl}" style="
           display: inline-block;
-          background: #1a5276;
+          background: #028090;
           color: white;
           padding: 12px 24px;
-          border-radius: 6px;
+          border-radius: 8px;
           text-decoration: none;
           margin: 16px 0;
+          font-weight: 600;
         ">Accept Invitation</a>
         <p style="color: #666; font-size: 14px;">This invitation expires in 7 days.</p>
       </div>
@@ -225,16 +213,17 @@ export async function sendEmailVerification(
     template: "email_verification",
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1a5276;">Welcome to Nexovita Health</h2>
+        <h2 style="color: #028090;">Welcome to Nexovita Health</h2>
         <p>Please verify your email address to complete your registration.</p>
         <a href="${verifyUrl}" style="
           display: inline-block;
-          background: #1a5276;
+          background: #028090;
           color: white;
           padding: 12px 24px;
-          border-radius: 6px;
+          border-radius: 8px;
           text-decoration: none;
           margin: 16px 0;
+          font-weight: 600;
         ">Verify Email</a>
       </div>
     `,
@@ -258,7 +247,7 @@ export async function sendPortalAccessEmail(params: {
     orgId: params.orgId,
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1a5276;">Portal access ready</h2>
+        <h2 style="color: #028090;">Portal access ready</h2>
         <p>Hello ${params.recipientName},</p>
         <p>You now have read-only ${params.portalLabel} access for <strong>${params.patientName}</strong>.</p>
         <p>Use the secure link below to sign in. This link is single-use and expires in 7 days.</p>
@@ -267,9 +256,10 @@ export async function sendPortalAccessEmail(params: {
           background: #028090;
           color: white;
           padding: 12px 24px;
-          border-radius: 6px;
+          border-radius: 8px;
           text-decoration: none;
           margin: 16px 0;
+          font-weight: 600;
         ">Open Portal</a>
         <p style="color: #666; font-size: 14px;">If you did not expect this email, contact your care agency.</p>
       </div>
@@ -305,9 +295,10 @@ export async function sendCriticalAlertEmail(params: {
           background: #b42318;
           color: white;
           padding: 12px 24px;
-          border-radius: 6px;
+          border-radius: 8px;
           text-decoration: none;
           margin: 16px 0;
+          font-weight: 600;
         ">Open Patient Chart</a>
         <p style="color: #666; font-size: 14px;">This message does not include the full chart. Sign in to Nexovita to review details.</p>
       </div>
