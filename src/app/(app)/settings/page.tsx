@@ -12,9 +12,24 @@ import {
   Save,
   Loader2,
   CheckCircle2,
+  MapPin,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
-type Tab = "profile" | "organization" | "notifications" | "security";
+type Tab = "profile" | "organization" | "notifications" | "security" | "locations";
+
+type Branch = {
+  id: string;
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  region?: string | null;
+  phone?: string | null;
+};
+
+const EMPTY_BRANCH = { name: "", address: "", city: "", region: "", phone: "" };
 
 export default function SettingsPage() {
   const { user, activeOrg, refresh } = useAuth();
@@ -31,6 +46,10 @@ export default function SettingsPage() {
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [emailStatusFilter, setEmailStatusFilter] = useState("");
+  const [branchForm, setBranchForm] = useState(EMPTY_BRANCH);
+  const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
+  const [showAddBranch, setShowAddBranch] = useState(false);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const isAgencyAdmin = user?.role === "agency_admin";
 
   const [profile, setProfile] = useState({
@@ -110,6 +129,40 @@ export default function SettingsPage() {
       orgApi(activeOrg!.orgId).emailDeliveries.retry(deliveryId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["email-deliveries"] }),
+  });
+
+  const { data: branchesData, isLoading: branchesLoading } = useQuery({
+    queryKey: ["branches", activeOrg?.orgId],
+    queryFn: () => orgApi(activeOrg!.orgId).branches.list(),
+    enabled: !!activeOrg?.orgId && isAgencyAdmin && activeTab === "locations",
+  });
+
+  const createBranchMutation = useMutation({
+    mutationFn: (data: typeof EMPTY_BRANCH) =>
+      orgApi(activeOrg!.orgId).branches.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      setBranchForm(EMPTY_BRANCH);
+      setShowAddBranch(false);
+    },
+  });
+
+  const updateBranchMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<typeof EMPTY_BRANCH> }) =>
+      orgApi(activeOrg!.orgId).branches.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      setEditingBranch(null);
+    },
+  });
+
+  const deactivateBranchMutation = useMutation({
+    mutationFn: (branchId: string) =>
+      orgApi(activeOrg!.orgId).branches.deactivate(branchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["branches"] });
+      setDeactivatingId(null);
+    },
   });
 
   const profileMutation = useMutation({
@@ -251,6 +304,9 @@ export default function SettingsPage() {
       icon: <Bell className="w-4 h-4" />,
     },
     { id: "security", label: "Security", icon: <Shield className="w-4 h-4" /> },
+    ...(isAgencyAdmin
+      ? [{ id: "locations" as Tab, label: "Locations", icon: <MapPin className="w-4 h-4" /> }]
+      : []),
   ];
 
   return (
@@ -915,8 +971,253 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {activeTab === "locations" && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">Office Locations</h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Branches visible in the patient intake form
+                    </p>
+                  </div>
+                  {!showAddBranch && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddBranch(true); setBranchForm(EMPTY_BRANCH); }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#028090] text-white text-sm font-medium hover:bg-[#026f7c] transition-colors"
+                    >
+                      <Plus className="w-4 h-4" /> Add Location
+                    </button>
+                  )}
+                </div>
+
+                {showAddBranch && (
+                  <div className="mb-5 border border-[#028090]/30 bg-teal-50/30 rounded-xl p-4 space-y-3">
+                    <p className="text-sm font-semibold text-slate-800">New location</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
+                        <input
+                          value={branchForm.name}
+                          onChange={(e) => setBranchForm((f) => ({ ...f, name: e.target.value }))}
+                          placeholder="e.g. North Office"
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">City</label>
+                        <input
+                          value={branchForm.city}
+                          onChange={(e) => setBranchForm((f) => ({ ...f, city: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Region / State</label>
+                        <input
+                          value={branchForm.region}
+                          onChange={(e) => setBranchForm((f) => ({ ...f, region: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Address</label>
+                        <input
+                          value={branchForm.address}
+                          onChange={(e) => setBranchForm((f) => ({ ...f, address: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
+                        <input
+                          type="tel"
+                          value={branchForm.phone}
+                          onChange={(e) => setBranchForm((f) => ({ ...f, phone: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={!branchForm.name.trim() || createBranchMutation.isPending}
+                        onClick={() => createBranchMutation.mutate(branchForm)}
+                        className="px-4 py-2 rounded-xl bg-[#028090] text-white text-sm font-medium disabled:opacity-50 hover:bg-[#026f7c] transition-colors"
+                      >
+                        {createBranchMutation.isPending ? "Saving…" : "Save location"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddBranch(false)}
+                        className="px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {createBranchMutation.isError && (
+                      <p className="text-xs text-red-600">Failed to save. Please try again.</p>
+                    )}
+                  </div>
+                )}
+
+                {branchesLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#028090]" />
+                  </div>
+                ) : (branchesData as Branch[] | undefined)?.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400">
+                    <MapPin className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No locations yet. Add your first office location.</p>
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-slate-100">
+                    {(branchesData as Branch[] | undefined)?.map((branch) => (
+                      <li key={branch.id} className="py-3">
+                        {editingBranch?.id === branch.id ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="col-span-2">
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Name *</label>
+                                <input
+                                  value={editingBranch.name}
+                                  onChange={(e) => setEditingBranch((b) => b ? { ...b, name: e.target.value } : b)}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">City</label>
+                                <input
+                                  value={editingBranch.city ?? ""}
+                                  onChange={(e) => setEditingBranch((b) => b ? { ...b, city: e.target.value } : b)}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Region / State</label>
+                                <input
+                                  value={editingBranch.region ?? ""}
+                                  onChange={(e) => setEditingBranch((b) => b ? { ...b, region: e.target.value } : b)}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Address</label>
+                                <input
+                                  value={editingBranch.address ?? ""}
+                                  onChange={(e) => setEditingBranch((b) => b ? { ...b, address: e.target.value } : b)}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-600 mb-1">Phone</label>
+                                <input
+                                  type="tel"
+                                  value={editingBranch.phone ?? ""}
+                                  onChange={(e) => setEditingBranch((b) => b ? { ...b, phone: e.target.value } : b)}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#028090]/25 focus:border-[#028090]"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={!editingBranch.name.trim() || updateBranchMutation.isPending}
+                                onClick={() => updateBranchMutation.mutate({
+                                  id: editingBranch.id,
+                                  data: {
+                                    name: editingBranch.name,
+                                    address: editingBranch.address ?? undefined,
+                                    city: editingBranch.city ?? undefined,
+                                    region: editingBranch.region ?? undefined,
+                                    phone: editingBranch.phone ?? undefined,
+                                  },
+                                })}
+                                className="px-4 py-2 rounded-xl bg-[#028090] text-white text-sm font-medium disabled:opacity-50 hover:bg-[#026f7c] transition-colors"
+                              >
+                                {updateBranchMutation.isPending ? "Saving…" : "Save"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingBranch(null)}
+                                className="px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : deactivatingId === branch.id ? (
+                          <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                            <p className="text-sm text-red-700">
+                              Remove <strong>{branch.name}</strong>? This cannot be undone.
+                            </p>
+                            <div className="flex gap-2 ml-4 shrink-0">
+                              <button
+                                type="button"
+                                disabled={deactivateBranchMutation.isPending}
+                                onClick={() => deactivateBranchMutation.mutate(branch.id)}
+                                className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium disabled:opacity-50"
+                              >
+                                {deactivateBranchMutation.isPending ? "Removing…" : "Remove"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeactivatingId(null)}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                              <div className="mt-0.5 p-1.5 bg-teal-50 rounded-lg">
+                                <MapPin className="w-3.5 h-3.5 text-[#028090]" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">{branch.name}</p>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                  {[branch.address, branch.city, branch.region]
+                                    .filter(Boolean)
+                                    .join(", ") || "No address set"}
+                                </p>
+                                {branch.phone && (
+                                  <p className="text-xs text-slate-400">{branch.phone}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setEditingBranch(branch)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-[#028090] hover:bg-teal-50 transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeactivatingId(branch.id)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                title="Remove"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Save button */}
-          {activeTab !== "security" && (
+          {activeTab !== "security" && activeTab !== "locations" && (
             <div className="mt-4 flex items-center justify-end gap-3">
               {saveError && (
                 <span className="text-sm text-red-600 font-medium">
