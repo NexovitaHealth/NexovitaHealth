@@ -5,7 +5,7 @@
 #   export GCP_PROJECT_ID=your-gcp-project-id
 #   ./deploy/setup-gcp-runtime.sh
 #
-# Prerequisite: create Secret Manager secrets (see deploy/README.md), including SMTP.
+# Prerequisite: create Secret Manager secrets (see deploy/README.md and deploy/RESEND.md).
 
 set -euo pipefail
 
@@ -26,10 +26,9 @@ RUNTIME_SECRETS=(
   nexovita-storage-bucket
   nexovita-storage-key-id
   nexovita-storage-secret
-  nexovita-smtp-host
-  nexovita-smtp-user
-  nexovita-smtp-pass
+  nexovita-resend-api-key
   nexovita-email-from
+  nexovita-cloudflare-token
 )
 
 MIGRATE_SECRETS=(
@@ -100,7 +99,7 @@ cloudbuild.yaml uses:
   _RUNTIME_SA=${RUNTIME_SA_ID}
   _MIGRATE_SA=${MIGRATE_SA_ID}
 
-Re-run this script after adding new Secret Manager entries to ${RUNTIME_SECRETS[*]}.
+Re-run this script after adding new Secret Manager secrets.
 
 ================================================================================
 EOF

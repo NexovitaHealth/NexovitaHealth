@@ -121,15 +121,11 @@ Secrets:
   GCP_DEPLOY_SA    = ${SA_EMAIL}
 
 Variables (Repository variables):
-  GCP_PROJECT_ID   = ${GCP_PROJECT_ID}
-  GCP_REGION       = africa-south1
+  GCP_PROJECT_ID    = ${GCP_PROJECT_ID}
+  GCP_REGION        = africa-south1
   CLOUDSQL_INSTANCE = PROJECT_ID:africa-south1:INSTANCE_NAME
-  APP_URL          = https://your-production-domain.com
-  S3_ENDPOINT      = https://ACCOUNT_ID.r2.cloudflarestorage.com
-
-Optional variables:
-  SMTP_PORT        = 587
-  SMTP_SECURE      = false
+  APP_URL           = https://your-production-domain.com
+  S3_ENDPOINT       = https://ACCOUNT_ID.r2.cloudflarestorage.com
 
 ================================================================================
 Also run:

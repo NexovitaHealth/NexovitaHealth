@@ -62,14 +62,10 @@ echo -n 'your-bucket-name' | gcloud secrets create nexovita-storage-bucket --pro
 echo -n 'access-key-id' | gcloud secrets create nexovita-storage-key-id --project=$PROJECT_ID --data-file=-
 echo -n 'secret-access-key' | gcloud secrets create nexovita-storage-secret --project=$PROJECT_ID --data-file=-
 
-# SMTP (invites, password reset) — Resend (see deploy/RESEND.md)
-echo -n 'smtp.resend.com' | gcloud secrets create nexovita-smtp-host --project=$PROJECT_ID --data-file=-
-echo -n 'resend' | gcloud secrets create nexovita-smtp-user --project=$PROJECT_ID --data-file=-
-echo -n 're_your_resend_api_key' | gcloud secrets create nexovita-smtp-pass --project=$PROJECT_ID --data-file=-
-echo -n 'Nexovita Health <no-reply@yourdomain.com>' | gcloud secrets create nexovita-email-from --project=$PROJECT_ID --data-file=-
+# Email — Resend native SDK (see deploy/RESEND.md)
+echo -n 're_your_resend_api_key' | gcloud secrets create nexovita-resend-api-key --project=$PROJECT_ID --data-file=-
+echo -n 'Nexovita Health <no-reply@nexovitahealth.com>' | gcloud secrets create nexovita-email-from --project=$PROJECT_ID --data-file=-
 ```
-
-`SMTP_PORT` / `SMTP_SECURE` default to `587` / `false` (Resend STARTTLS). For port `465`, set GitHub variables `SMTP_PORT=465` and `SMTP_SECURE=true`.
 
 ### Dedicated Cloud Run service accounts
 
@@ -203,14 +199,14 @@ export GCP_PROJECT=...
 
 ## 6. Email (Resend)
 
-Production uses **Resend SMTP** via Secret Manager (`nexovita-smtp-*`, `nexovita-email-from`). Step-by-step: **[deploy/RESEND.md](RESEND.md)**.
+Production uses the **Resend Node SDK** via Secret Manager (`nexovita-resend-api-key`, `nexovita-email-from`). Step-by-step: **[deploy/RESEND.md](RESEND.md)**.
 
-Verify your domain in the Resend dashboard, then add DNS records in Cloudflare. After deploy, test an invite or password reset.
+Verify your domain in Resend, add the DNS records in Cloudflare (DNS only, not proxied), then test with Forgot Password after deploy.
 
 ## 7. First deploy checklist
 
 - Cloud SQL instance running; `DATABASE_URL` secret set
-- All Secret Manager entries created (10 secrets, including SMTP)
+- All Secret Manager entries created (`nexovita-database-url`, `nexovita-jwt-secret`, `nexovita-cron-secret`, storage secrets, `nexovita-resend-api-key`, `nexovita-email-from`, `nexovita-cloudflare-token`)
 - `./deploy/setup-gcp-runtime.sh` completed
 - R2 or GCS bucket + credentials configured
 - `cloudbuild.yaml` substitutions updated
@@ -229,7 +225,7 @@ Verify your domain in the Resend dashboard, then add DNS records in Cloudflare. 
 | Upload 500                          | Verify `S3_ENDPOINT`, bucket name, and HMAC/R2 keys                               |
 | Session lost on login               | Ensure `NEXT_PUBLIC_APP_URL` uses HTTPS; Cloudflare SSL is Full (strict)          |
 | Cron 401                            | `CRON_SECRET` must match Scheduler `Authorization` header                         |
-| Email skipped / SMTP not configured | Create SMTP secrets; grant `nexovita-runtime` accessor; redeploy                  |
+| Email skipped | Create `nexovita-resend-api-key` secret; grant `nexovita-runtime` accessor; redeploy. Check Cloud Run logs for `RESEND_API_KEY is not set`. |
 | Permission denied on deploy SA      | Run `setup-gcp-runtime.sh`; ensure Cloud Build SA can `actAs` runtime/migrate SAs |
 
 

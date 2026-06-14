@@ -16,18 +16,16 @@ set -euo pipefail
 : "${S3_ENDPOINT:?Set S3_ENDPOINT}"
 
 REGION="${GCP_REGION:-africa-south1}"
-SMTP_PORT="${SMTP_PORT:-587}"
-SMTP_SECURE="${SMTP_SECURE:-false}"
 
-echo "Project:  $GCP_PROJECT_ID"
-echo "Region:   $REGION"
+echo "Project:   $GCP_PROJECT_ID"
+echo "Region:    $REGION"
 echo "Cloud SQL: $CLOUDSQL_INSTANCE"
-echo "App URL:  $APP_URL"
+echo "App URL:   $APP_URL"
 echo ""
 
 gcloud builds submit \
   --project="$GCP_PROJECT_ID" \
   --region="$REGION" \
   --config=cloudbuild.yaml \
-  --substitutions="_CLOUDSQL_INSTANCE=${CLOUDSQL_INSTANCE},_APP_URL=${APP_URL},_S3_ENDPOINT=${S3_ENDPOINT},_REGION=${REGION},_SMTP_PORT=${SMTP_PORT},_SMTP_SECURE=${SMTP_SECURE}" \
+  --substitutions="_CLOUDSQL_INSTANCE=${CLOUDSQL_INSTANCE},_APP_URL=${APP_URL},_S3_ENDPOINT=${S3_ENDPOINT},_REGION=${REGION}" \
   .
