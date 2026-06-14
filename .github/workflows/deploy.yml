@@ -81,17 +81,11 @@ jobs:
       - name: Submit Cloud Build
         run: |
           set -euo pipefail
-          SMTP_PORT="${SMTP_PORT:-587}"
-          SMTP_SECURE="${SMTP_SECURE:-false}"
-          echo "SMTP_PORT=$SMTP_PORT SMTP_SECURE=$SMTP_SECURE"
           gcloud builds submit \
             --project="${{ vars.GCP_PROJECT_ID }}" \
             --region="${{ vars.GCP_REGION }}" \
             --config=cloudbuild.yaml \
-            --substitutions=_CLOUDSQL_INSTANCE=${{ vars.CLOUDSQL_INSTANCE }},_APP_URL=${{ vars.APP_URL }},_S3_ENDPOINT=${{ vars.S3_ENDPOINT }},_REGION=${{ vars.GCP_REGION }},_SMTP_PORT=${SMTP_PORT},_SMTP_SECURE=${SMTP_SECURE}
-        env:
-          SMTP_PORT: ${{ vars.SMTP_PORT }}
-          SMTP_SECURE: ${{ vars.SMTP_SECURE }}
+            --substitutions=_CLOUDSQL_INSTANCE=${{ vars.CLOUDSQL_INSTANCE }},_APP_URL=${{ vars.APP_URL }},_S3_ENDPOINT=${{ vars.S3_ENDPOINT }},_REGION=${{ vars.GCP_REGION }}
 
       - name: Verify Cloud Run service
         run: |

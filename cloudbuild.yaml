@@ -11,8 +11,6 @@ substitutions:
   _REPOSITORY: nexovita
   _RUNTIME_SA: nexovita-runtime
   _MIGRATE_SA: nexovita-migrate
-  _SMTP_PORT: "587"
-  _SMTP_SECURE: "false"
   # Set via GitHub Actions vars or: gcloud builds submit --substitutions=...
   _CLOUDSQL_INSTANCE: ""
   _APP_URL: https://example.com
@@ -97,8 +95,8 @@ steps:
           --concurrency=80
           --cpu-boost
           --allow-unauthenticated
-          --set-env-vars=NODE_ENV=production,STORAGE_PROVIDER=s3,AWS_REGION=auto,S3_FORCE_PATH_STYLE=true,SMTP_PORT=${_SMTP_PORT},SMTP_SECURE=${_SMTP_SECURE},NEXT_PUBLIC_APP_URL=${_APP_URL},S3_ENDPOINT=${_S3_ENDPOINT}
-          --set-secrets=DATABASE_URL=nexovita-database-url:latest,JWT_SECRET=nexovita-jwt-secret:latest,CRON_SECRET=nexovita-cron-secret:latest,AWS_ACCESS_KEY_ID=nexovita-storage-key-id:latest,AWS_SECRET_ACCESS_KEY=nexovita-storage-secret:latest,S3_BUCKET=nexovita-storage-bucket:latest,SMTP_HOST=nexovita-smtp-host:latest,SMTP_USER=nexovita-smtp-user:latest,SMTP_PASS=nexovita-smtp-pass:latest,EMAIL_FROM=nexovita-email-from:latest,CLOUDFLARE_TOKEN=nexovita-cloudflare-token:latest)
+          --set-env-vars=NODE_ENV=production,STORAGE_PROVIDER=s3,AWS_REGION=auto,S3_FORCE_PATH_STYLE=true,NEXT_PUBLIC_APP_URL=${_APP_URL},S3_ENDPOINT=${_S3_ENDPOINT}
+          --set-secrets=DATABASE_URL=nexovita-database-url:latest,JWT_SECRET=nexovita-jwt-secret:latest,CRON_SECRET=nexovita-cron-secret:latest,AWS_ACCESS_KEY_ID=nexovita-storage-key-id:latest,AWS_SECRET_ACCESS_KEY=nexovita-storage-secret:latest,S3_BUCKET=nexovita-storage-bucket:latest,RESEND_API_KEY=nexovita-resend-api-key:latest,EMAIL_FROM=nexovita-email-from:latest,CLOUDFLARE_TOKEN=nexovita-cloudflare-token:latest)
         if [ -n "${_CLOUDSQL_INSTANCE}" ]; then
           CMD+=(--add-cloudsql-instances="${_CLOUDSQL_INSTANCE}")
         fi
