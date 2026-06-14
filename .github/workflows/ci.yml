@@ -27,7 +27,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           # Prisma 5 + Next 14: use Node 20 for app tooling (Actions still run on Node 24 via env above)
           node-version: "20"
